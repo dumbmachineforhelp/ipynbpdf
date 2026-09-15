@@ -1,237 +1,550 @@
-/* =========================================================
-   GENERAL APP
-   ========================================================= */
+:root {
+    --bg-1: #f5f7ff;
+    --bg-2: #eef2ff;
+
+    --card: rgba(255, 255, 255, 0.88);
+
+    --text: #172033;
+    --muted: #697386;
+
+    --border: #e3e7ef;
+
+    --primary: #635bff;
+    --primary-dark: #5148e5;
+
+    --success: #16a34a;
+    --danger: #dc2626;
+
+    --shadow:
+        0 24px 70px rgba(45, 55, 90, 0.14);
+
+    --radius: 24px;
+}
+
+
+/* ------------------------------------------------ */
+/* Base */
+/* ------------------------------------------------ */
 
 * {
     box-sizing: border-box;
 }
 
-html,
-body {
-    margin: 0;
-    padding: 0;
+html {
     min-height: 100%;
 }
 
 body {
+    margin: 0;
+    min-height: 100vh;
+
     font-family:
-        Arial,
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
         Helvetica,
+        Arial,
         sans-serif;
 
-    background: #f5f7fb;
-    color: #111827;
+    color: var(--text);
+
+    background:
+        radial-gradient(
+            circle at top left,
+            rgba(99, 91, 255, 0.13),
+            transparent 35%
+        ),
+        radial-gradient(
+            circle at bottom right,
+            rgba(139, 92, 246, 0.12),
+            transparent 35%
+        ),
+        linear-gradient(
+            135deg,
+            var(--bg-1),
+            var(--bg-2)
+        );
 }
 
-.app {
+
+/* ------------------------------------------------ */
+/* Main page */
+/* ------------------------------------------------ */
+
+.page {
     min-height: 100vh;
 
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
 
     padding: 40px 20px;
 }
 
-.container {
+
+/* ------------------------------------------------ */
+/* Main card */
+/* ------------------------------------------------ */
+
+.app-card {
     width: 100%;
-    max-width: 650px;
+    max-width: 720px;
 
-    background: white;
+    padding: 46px;
 
-    padding: 45px;
+    background: var(--card);
 
-    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
 
-    box-shadow:
-        0 10px 40px rgba(0, 0, 0, 0.08);
+    border-radius: var(--radius);
+
+    box-shadow: var(--shadow);
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
 }
 
-h1 {
+
+/* ------------------------------------------------ */
+/* Hero */
+/* ------------------------------------------------ */
+
+.hero {
+    text-align: center;
+    margin-bottom: 34px;
+}
+
+.hero-icon {
+    width: 64px;
+    height: 64px;
+
+    margin: 0 auto 18px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 18px;
+
+    font-size: 30px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(99, 91, 255, 0.13),
+            rgba(139, 92, 246, 0.13)
+        );
+}
+
+.hero h1 {
     margin: 0;
-    text-align: center;
 
-    font-size: 34px;
+    font-size: 42px;
+    line-height: 1.1;
+
+    font-weight: 800;
+    letter-spacing: -1.8px;
+
+    color: var(--text);
 }
 
-.subtitle {
-    margin: 12px 0 35px;
+.hero h1 span {
+    background:
+        linear-gradient(
+            135deg,
+            #635bff,
+            #8b5cf6
+        );
 
-    text-align: center;
+    -webkit-background-clip: text;
+    background-clip: text;
 
-    color: #6b7280;
+    color: transparent;
+}
 
+.hero p {
+    max-width: 510px;
+
+    margin: 14px auto 0;
+
+    color: var(--muted);
+
+    font-size: 16px;
     line-height: 1.6;
 }
 
 
-/* =========================================================
-   DROP ZONE
-   ========================================================= */
+/* ------------------------------------------------ */
+/* Drop zone */
+/* ------------------------------------------------ */
 
 .drop-zone {
-    border: 2px dashed #cbd5e1;
+    position: relative;
 
-    border-radius: 12px;
-
-    padding: 50px 25px;
+    padding: 42px 25px;
 
     text-align: center;
 
-    cursor: pointer;
+    border: 2px dashed #cfd5e3;
+    border-radius: 20px;
+
+    background: rgba(249, 250, 255, 0.8);
 
     transition:
-        border-color 0.2s,
-        background 0.2s;
+        border-color 0.2s ease,
+        background 0.2s ease,
+        transform 0.2s ease;
 }
 
 .drop-zone:hover {
-    border-color: #6366f1;
-    background: #f8f8ff;
+    border-color: var(--primary);
+
+    background:
+        rgba(99, 91, 255, 0.035);
 }
 
 .drop-zone.dragover {
-    border-color: #4f46e5;
-    background: #eef2ff;
+    border-color: var(--primary);
+
+    background:
+        rgba(99, 91, 255, 0.08);
+
+    transform: scale(1.01);
 }
 
 .upload-icon {
-    font-size: 50px;
-    margin-bottom: 15px;
+    width: 58px;
+    height: 58px;
+
+    margin: 0 auto 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 16px;
+
+    font-size: 27px;
+    font-weight: 700;
+
+    color: var(--primary);
+
+    background:
+        rgba(99, 91, 255, 0.10);
 }
 
 .drop-zone h2 {
-    margin: 0 0 8px;
+    margin: 0;
 
-    font-size: 21px;
+    font-size: 20px;
+    font-weight: 700;
 }
 
 .drop-zone p {
-    margin: 0;
+    margin: 7px 0 13px;
 
-    color: #6b7280;
+    color: var(--muted);
+
+    font-size: 14px;
 }
 
 
-/* =========================================================
-   FILE INFO
-   ========================================================= */
+/* ------------------------------------------------ */
+/* File input */
+/* ------------------------------------------------ */
 
-.file-info {
-    margin-top: 20px;
+/*
+    Do NOT use:
+        hidden
+    on the file input.
 
-    padding: 15px 18px;
+    Chrome behaves more reliably with a visually hidden
+    input connected to a native <label>.
+*/
 
-    border-radius: 10px;
+.file-input {
+    position: absolute;
 
-    background: #f3f4f6;
+    width: 1px;
+    height: 1px;
 
-    display: flex;
+    padding: 0;
+    margin: -1px;
 
+    overflow: hidden;
+
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+
+    white-space: nowrap;
+
+    border: 0;
+}
+
+
+/* ------------------------------------------------ */
+/* Browse button */
+/* ------------------------------------------------ */
+
+.browse-button {
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
 
-    justify-content: space-between;
+    padding: 11px 18px;
 
-    gap: 15px;
-}
-
-#fileName {
-    word-break: break-all;
-}
-
-.remove-button {
-    flex-shrink: 0;
-
-    border: 0;
-
-    background: transparent;
-
-    color: #dc2626;
-
-    cursor: pointer;
-
-    font-weight: 600;
-}
-
-.remove-button:hover {
-    text-decoration: underline;
-}
-
-
-/* =========================================================
-   CONVERT BUTTON
-   ========================================================= */
-
-.convert-button {
-    width: 100%;
-
-    margin-top: 25px;
-
-    padding: 15px 20px;
-
-    border: 0;
-
-    border-radius: 10px;
-
-    background: #4f46e5;
+    border-radius: 11px;
 
     color: white;
 
-    font-size: 16px;
+    background:
+        linear-gradient(
+            135deg,
+            var(--primary),
+            #8b5cf6
+        );
 
+    font-size: 14px;
     font-weight: 700;
 
     cursor: pointer;
 
-    transition: background 0.2s;
+    box-shadow:
+        0 8px 20px rgba(99, 91, 255, 0.22);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
-.convert-button:hover:not(:disabled) {
-    background: #4338ca;
+.browse-button:hover {
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 12px 26px rgba(99, 91, 255, 0.28);
 }
 
-.convert-button:disabled {
-    opacity: 0.5;
+.browse-button:active {
+    transform: translateY(0);
+}
 
-    cursor: not-allowed;
+.drop-zone small {
+    display: block;
+
+    margin-top: 17px;
+
+    color: #8a93a5;
+
+    font-size: 12px;
 }
 
 
-/* =========================================================
-   STATUS
-   ========================================================= */
+/* ------------------------------------------------ */
+/* File information */
+/* ------------------------------------------------ */
 
-.status {
-    margin-top: 20px;
-
-    padding: 15px;
-
+.file-info {
     display: flex;
-
-    justify-content: center;
-
     align-items: center;
 
-    gap: 12px;
+    gap: 14px;
 
-    color: #374151;
+    margin-top: 18px;
+
+    padding: 14px 16px;
+
+    border: 1px solid var(--border);
+    border-radius: 15px;
+
+    background: white;
+}
+
+.file-icon {
+    width: 42px;
+    height: 42px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 11px;
+
+    background: rgba(99, 91, 255, 0.09);
+
+    font-size: 20px;
+}
+
+.file-details {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 3px;
+}
+
+.file-details strong {
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 14px;
+}
+
+.file-details span {
+    color: var(--muted);
+
+    font-size: 12px;
+}
+
+.remove-button {
+    width: 34px;
+    height: 34px;
+
+    margin-left: auto;
+
+    flex-shrink: 0;
+
+    border: 0;
+    border-radius: 9px;
 
     background: #f3f4f6;
 
-    border-radius: 10px;
+    color: #687080;
+
+    font-size: 21px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+.remove-button:hover {
+    background: #fee2e2;
+
+    color: var(--danger);
+}
+
+
+/* ------------------------------------------------ */
+/* Convert button */
+/* ------------------------------------------------ */
+
+.convert-button {
+    width: 100%;
+
+    margin-top: 22px;
+
+    padding: 16px 20px;
+
+    border: 0;
+    border-radius: 14px;
+
+    color: white;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--primary),
+            #8b5cf6
+        );
+
+    font-size: 15px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 12px 25px rgba(99, 91, 255, 0.22);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        opacity 0.2s ease;
+}
+
+.convert-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 15px 30px rgba(99, 91, 255, 0.28);
+}
+
+.convert-button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.convert-button:disabled {
+    cursor: not-allowed;
+
+    opacity: 0.45;
+
+    box-shadow: none;
+}
+
+.convert-icon {
+    margin-right: 7px;
+
+    font-size: 18px;
+}
+
+
+/* ------------------------------------------------ */
+/* Status */
+/* ------------------------------------------------ */
+
+.status {
+    display: flex;
+    align-items: center;
+
+    gap: 13px;
+
+    margin-top: 20px;
+
+    padding: 15px 16px;
+
+    border-radius: 14px;
+
+    background: #f7f7ff;
+
+    border: 1px solid #e7e7ff;
+}
+
+.status strong {
+    display: block;
+
+    margin-bottom: 3px;
+
+    font-size: 14px;
+}
+
+.status span {
+    color: var(--muted);
+
+    font-size: 12px;
 }
 
 .spinner {
-    width: 18px;
-    height: 18px;
+    width: 23px;
+    height: 23px;
 
-    border: 3px solid #d1d5db;
+    flex-shrink: 0;
 
-    border-top-color: #4f46e5;
+    border: 3px solid #dddffb;
+
+    border-top-color: var(--primary);
 
     border-radius: 50%;
 
-    animation: spin 0.8s linear infinite;
+    animation:
+        spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -241,81 +554,106 @@ h1 {
 }
 
 
-/* =========================================================
-   ERROR
-   ========================================================= */
+/* ------------------------------------------------ */
+/* Error */
+/* ------------------------------------------------ */
 
-.error {
-    margin-top: 20px;
+.error-box {
+    margin-top: 18px;
 
-    padding: 15px;
+    padding: 15px 16px;
 
-    border-radius: 10px;
-
-    background: #fef2f2;
+    border-radius: 13px;
 
     border: 1px solid #fecaca;
 
-    color: #b91c1c;
+    background: #fef2f2;
 
+    color: #991b1b;
+}
+
+.error-box strong {
+    display: block;
+
+    margin-bottom: 4px;
+
+    font-size: 14px;
+}
+
+.error-box p {
+    margin: 0;
+
+    font-size: 13px;
+    line-height: 1.5;
+
+    color: #b42318;
+
+    overflow-wrap: anywhere;
+}
+
+
+/* ------------------------------------------------ */
+/* Footer */
+/* ------------------------------------------------ */
+
+footer {
+    margin-top: 27px;
+
+    text-align: center;
+
+    color: #8a93a5;
+
+    font-size: 12px;
     line-height: 1.5;
 }
 
 
-/* =========================================================
-   FOOTER
-   ========================================================= */
-
-.footer {
-    margin-top: 30px;
-
-    text-align: center;
-
-    font-size: 13px;
-
-    color: #9ca3af;
-}
-
-
-/* =========================================================
-   UTILITY
-   ========================================================= */
+/* ------------------------------------------------ */
+/* Utility */
+/* ------------------------------------------------ */
 
 .hidden {
     display: none !important;
 }
 
 
-/* =========================================================
-   PDF RENDERING AREA
-   =========================================================
-
-   These styles are ONLY used while generating the PDF.
-   ========================================================= */
+/* ------------------------------------------------ */
+/* PDF rendering area */
+/* ------------------------------------------------ */
 
 .pdf-render-container {
-    position: absolute;
+    position: fixed;
 
-    left: -10000px;
+    left: -100000px;
     top: 0;
 
     width: 794px;
 
-    display: block;
+    overflow: visible;
 
-    visibility: visible;
+    background: white;
+}
 
-    background: #ffffff;
 
-    color: #111111;
+/* ------------------------------------------------ */
+/* Notebook document */
+/* ------------------------------------------------ */
 
-    padding: 60px;
+.notebook-document {
+    width: 794px;
 
-    box-sizing: border-box;
+    padding: 42px 46px;
+
+    background: white;
+
+    color: #111827;
 
     font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
         Arial,
-        Helvetica,
         sans-serif;
 
     font-size: 14px;
@@ -323,273 +661,242 @@ h1 {
     line-height: 1.6;
 }
 
-.notebook-document {
-    width: 100%;
 
-    background: #ffffff;
-}
+/* ------------------------------------------------ */
+/* Notebook cells */
+/* ------------------------------------------------ */
 
 .notebook-cell {
-    width: 100%;
-
-    margin-bottom: 30px;
+    margin-bottom: 24px;
 
     break-inside: avoid;
-
     page-break-inside: avoid;
 }
-
-
-/* =========================================================
-   PDF TITLES
-   ========================================================= */
 
 .notebook-title {
-    margin-top: 0;
+    margin:
+        0 0 30px;
 
-    margin-bottom: 35px;
+    padding-bottom: 18px;
 
-    font-size: 34px;
+    border-bottom: 2px solid #e5e7eb;
 
-    line-height: 1.25;
-
-    color: #111111;
-}
-
-.notebook-document h1 {
-    font-size: 30px;
+    font-size: 27px;
 
     line-height: 1.25;
-
-    margin-top: 30px;
-
-    margin-bottom: 18px;
 }
 
-.notebook-document h2 {
-    font-size: 24px;
+
+/* ------------------------------------------------ */
+/* Markdown */
+/* ------------------------------------------------ */
+
+.markdown-cell h1,
+.markdown-cell h2,
+.markdown-cell h3,
+.markdown-cell h4,
+.markdown-cell h5,
+.markdown-cell h6 {
+    margin-top: 1.2em;
+    margin-bottom: 0.55em;
 
     line-height: 1.3;
-
-    margin-top: 26px;
-
-    margin-bottom: 14px;
 }
 
-.notebook-document h3 {
-    font-size: 19px;
-
-    line-height: 1.35;
-
-    margin-top: 22px;
-
-    margin-bottom: 12px;
+.markdown-cell h1 {
+    font-size: 25px;
 }
 
-.notebook-document h4,
-.notebook-document h5,
-.notebook-document h6 {
-    margin-top: 20px;
-
-    margin-bottom: 10px;
+.markdown-cell h2 {
+    font-size: 21px;
 }
 
-
-/* =========================================================
-   PDF TEXT
-   ========================================================= */
-
-.notebook-document p {
-    margin-top: 8px;
-
-    margin-bottom: 12px;
+.markdown-cell h3 {
+    font-size: 18px;
 }
 
-.notebook-document ul,
-.notebook-document ol {
-    margin-top: 10px;
-
-    margin-bottom: 15px;
-
-    padding-left: 30px;
+.markdown-cell p {
+    margin:
+        0.65em 0;
 }
 
-.notebook-document li {
-    margin-bottom: 4px;
+.markdown-cell ul,
+.markdown-cell ol {
+    padding-left: 26px;
 }
 
-.notebook-document a {
-    color: #2563eb;
-
-    text-decoration: underline;
+.markdown-cell li {
+    margin: 4px 0;
 }
 
-.notebook-document blockquote {
-    margin: 15px 0;
+.markdown-cell blockquote {
+    margin:
+        16px 0;
 
-    padding: 10px 15px;
+    padding:
+        8px 16px;
 
-    border-left: 4px solid #cbd5e1;
+    border-left: 4px solid #d1d5db;
+
+    background: #f9fafb;
 
     color: #4b5563;
-
-    background: #f8fafc;
 }
 
-.notebook-document hr {
-    border: 0;
-
-    border-top: 1px solid #d1d5db;
-
-    margin: 25px 0;
+.markdown-cell a {
+    color: #4f46e5;
 }
 
 
-/* =========================================================
-   INLINE CODE
-   ========================================================= */
+/* ------------------------------------------------ */
+/* Code */
+/* ------------------------------------------------ */
 
-.notebook-document :not(pre) > code {
-    padding: 2px 5px;
-
-    border-radius: 4px;
-
-    background: #f1f1f1;
-
-    font-family:
-        "SFMono-Regular",
-        Consolas,
-        "Liberation Mono",
-        monospace;
-
-    font-size: 0.9em;
-}
-
-
-/* =========================================================
-   CODE CELLS
-   ========================================================= */
-
-.code {
-    width: 100%;
-
-    box-sizing: border-box;
-
-    padding: 14px 16px;
-
-    margin: 12px 0;
-
-    background: #f5f5f5;
-
-    border: 1px solid #dddddd;
-
-    border-radius: 6px;
-
-    color: #111111;
-
-    font-family:
-        "SFMono-Regular",
-        Consolas,
-        "Liberation Mono",
-        monospace;
-
-    font-size: 12px;
-
-    line-height: 1.55;
-
-    white-space: pre-wrap;
-
-    overflow-wrap: anywhere;
-
-    break-inside: avoid;
-
-    page-break-inside: avoid;
-}
-
-
-/* =========================================================
-   OUTPUTS
-   ========================================================= */
-
-.output {
-    width: 100%;
-
-    box-sizing: border-box;
-
+.code-cell {
     margin-top: 12px;
-
-    margin-bottom: 15px;
-
-    padding: 12px;
-
-    background: #fafafa;
-
-    border-left: 4px solid #6366f1;
-
-    color: #111111;
-
-    overflow: hidden;
-
-    break-inside: avoid;
-
-    page-break-inside: avoid;
 }
 
-.output pre {
+.code-label {
+    margin-bottom: 6px;
+
+    color: #6b7280;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.code-block {
     margin: 0;
 
-    white-space: pre-wrap;
+    padding: 15px 17px;
 
     overflow-wrap: anywhere;
+    white-space: pre-wrap;
+
+    border-radius: 9px;
+
+    background: #f3f4f6;
+
+    border: 1px solid #e5e7eb;
+
+    color: #111827;
 
     font-family:
         "SFMono-Regular",
         Consolas,
+        "Liberation Mono",
+        Menlo,
         monospace;
 
-    font-size: 12px;
+    font-size: 11px;
+
+    line-height: 1.55;
+}
+
+
+/* ------------------------------------------------ */
+/* Outputs */
+/* ------------------------------------------------ */
+
+.output-cell {
+    margin-top: 12px;
+}
+
+.output-label {
+    margin-bottom: 6px;
+
+    color: #6b7280;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.output-text {
+    white-space: pre-wrap;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        Menlo,
+        monospace;
+
+    font-size: 11px;
 
     line-height: 1.5;
 }
 
+.output-error {
+    padding: 13px;
 
-/* =========================================================
-   IMAGES
-   ========================================================= */
+    border-radius: 8px;
+
+    background: #fef2f2;
+
+    border: 1px solid #fecaca;
+
+    color: #991b1b;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 11px;
+
+    white-space: pre-wrap;
+}
 
 .output-image {
     display: block;
 
     max-width: 100%;
-
     height: auto;
 
-    margin: 8px auto;
-
-    break-inside: avoid;
+    margin-top: 8px;
 }
 
-.notebook-document img {
+.output-html {
     max-width: 100%;
 
+    overflow-wrap: anywhere;
+}
+
+.output-html img {
+    max-width: 100%;
     height: auto;
 }
 
 
-/* =========================================================
-   TABLES
-   ========================================================= */
+/* ------------------------------------------------ */
+/* Tables */
+/* ------------------------------------------------ */
 
 .notebook-document table {
     width: 100%;
 
+    margin: 14px 0;
+
     border-collapse: collapse;
 
-    margin: 18px 0;
+    font-size: 11px;
+}
 
-    font-size: 13px;
+.notebook-document th,
+.notebook-document td {
+    padding: 7px 9px;
 
-    break-inside: avoid;
+    border: 1px solid #d1d5db;
+
+    text-align: left;
+
+    vertical-align: top;
 }
 
 .notebook-document th {
@@ -598,51 +905,46 @@ h1 {
     font-weight: 700;
 }
 
-.notebook-document th,
-.notebook-document td {
-    border: 1px solid #cccccc;
 
-    padding: 7px 10px;
-
-    text-align: left;
-
-    vertical-align: top;
-}
-
-
-/* =========================================================
-   MATHJAX
-   ========================================================= */
+/* ------------------------------------------------ */
+/* MathJax */
+/* ------------------------------------------------ */
 
 .notebook-document mjx-container {
-    max-width: 100%;
-
     overflow-x: auto;
-
     overflow-y: hidden;
 }
 
 
-/* =========================================================
-   MOBILE
-   ========================================================= */
+/* ------------------------------------------------ */
+/* Mobile */
+/* ------------------------------------------------ */
 
-@media (max-width: 600px) {
+@media (max-width: 650px) {
 
-    .app {
+    .page {
         padding: 20px 12px;
     }
 
-    .container {
-        padding: 30px 20px;
+    .app-card {
+        padding: 28px 20px;
+
+        border-radius: 20px;
     }
 
-    h1 {
-        font-size: 28px;
+    .hero h1 {
+        font-size: 34px;
+    }
+
+    .hero p {
+        font-size: 14px;
     }
 
     .drop-zone {
-        padding: 40px 15px;
+        padding: 32px 18px;
     }
 
+    .notebook-document {
+        padding: 30px;
+    }
 }
