@@ -1,12 +1,11 @@
 "use strict";
 
 /* =========================================================
-   DOM ELEMENTS
+   DOM
 ========================================================= */
 
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
-const browseButton = document.getElementById("browseButton");
 
 const fileInfo = document.getElementById("fileInfo");
 const fileName = document.getElementById("fileName");
@@ -20,29 +19,28 @@ const statusText = document.getElementById("statusText");
 const errorBox = document.getElementById("errorBox");
 const errorText = document.getElementById("errorText");
 
-
-/* =========================================================
-   STATE
-========================================================= */
-
 let selectedFile = null;
 
 
 /* =========================================================
-   FILE SELECTION
+   FILE PICKER
 ========================================================= */
 
-browseButton.addEventListener("click", (event) => {
-    event.stopPropagation();
-    fileInput.click();
-});
+/*
+ * Only the drop zone opens the picker.
+ * This avoids nested click handlers triggering the picker
+ * more than once.
+ */
 
 dropZone.addEventListener("click", () => {
     fileInput.click();
 });
 
+
 fileInput.addEventListener("change", (event) => {
-    const file = event.target.files[0];
+
+    const file = event.target.files &&
+                 event.target.files[0];
 
     if (file) {
         handleFile(file);
@@ -55,21 +53,35 @@ fileInput.addEventListener("change", (event) => {
 ========================================================= */
 
 dropZone.addEventListener("dragover", (event) => {
+
     event.preventDefault();
+
+    event.stopPropagation();
 
     dropZone.classList.add("dragover");
 });
 
-dropZone.addEventListener("dragleave", () => {
-    dropZone.classList.remove("dragover");
-});
 
-dropZone.addEventListener("drop", (event) => {
+dropZone.addEventListener("dragleave", (event) => {
+
     event.preventDefault();
 
     dropZone.classList.remove("dragover");
+});
 
-    const file = event.dataTransfer.files[0];
+
+dropZone.addEventListener("drop", (event) => {
+
+    event.preventDefault();
+
+    event.stopPropagation();
+
+    dropZone.classList.remove("dragover");
+
+    const file =
+        event.dataTransfer &&
+        event.dataTransfer.files &&
+        event.dataTransfer.files[0];
 
     if (file) {
         handleFile(file);
@@ -85,17 +97,19 @@ function handleFile(file) {
 
     hideError();
 
-    const isIpynb =
-        file.name.toLowerCase().endsWith(".ipynb");
+    if (!file.name.toLowerCase().endsWith(".ipynb")) {
 
-    if (!isIpynb) {
-        showError("Please select a valid .ipynb file.");
+        showError(
+            "Please select a valid .ipynb file."
+        );
+
         return;
     }
 
     selectedFile = file;
 
-    fileName.textContent = file.name;
+    fileName.textContent =
+        file.name;
 
     fileInfo.classList.remove("hidden");
 
@@ -109,7 +123,11 @@ function handleFile(file) {
    REMOVE FILE
 ========================================================= */
 
-removeFile.addEventListener("click", () => {
+removeFile.addEventListener("click", (event) => {
+
+    event.preventDefault();
+
+    event.stopPropagation();
 
     selectedFile = null;
 
@@ -126,161 +144,225 @@ removeFile.addEventListener("click", () => {
 
 
 /* =========================================================
-   CONVERT BUTTON
+   CONVERT
 ========================================================= */
 
-convertButton.addEventListener("click", async () => {
+convertButton.addEventListener(
+    "click",
+    async (event) => {
 
-    if (!selectedFile) {
-        showError("Please select a notebook first.");
-        return;
-    }
+        event.preventDefault();
 
-    try {
+        event.stopPropagation();
 
-        hideError();
+        if (!selectedFile) {
 
-        setLoading(true, "Checking PDF libraries...");
-
-        if (
-            !window.marked ||
-            !window.DOMPurify ||
-            !window.html2canvas ||
-            !window.jspdf
-        ) {
-            throw new Error(
-                "One or more required PDF libraries failed to load. Please refresh the page and try again."
+            showError(
+                "Please select a notebook first."
             );
+
+            return;
         }
-
-        setLoading(true, "Reading your notebook...");
-
-        const text = await selectedFile.text();
-
-        let notebook;
 
         try {
-            notebook = JSON.parse(text);
+
+            hideError();
+
+            setLoading(
+                true,
+                "Checking PDF libraries..."
+            );
+
+
+            /* -----------------------------------------
+               Check libraries
+            ----------------------------------------- */
+
+            if (!window.marked) {
+                throw new Error(
+                    "Marked failed to load."
+                );
+            }
+
+            if (!window.DOMPurify) {
+                throw new Error(
+                    "DOMPurify failed to load."
+                );
+            }
+
+            if (!window.html2canvas) {
+                throw new Error(
+                    "html2canvas failed to load."
+                );
+            }
+
+            if (!window.jspdf) {
+                throw new Error(
+                    "jsPDF failed to load."
+                );
+            }
+
+
+            /* -----------------------------------------
+               Read notebook
+            ----------------------------------------- */
+
+            setLoading(
+                true,
+                "Reading your notebook..."
+            );
+
+            const text =
+                await selectedFile.text();
+
+            let notebook;
+
+            try {
+
+                notebook =
+                    JSON.parse(text);
+
+            } catch (error) {
+
+                throw new Error(
+                    "The selected file is not valid JSON."
+                );
+            }
+
+
+            if (
+                !notebook ||
+                !Array.isArray(notebook.cells)
+            ) {
+
+                throw new Error(
+                    "This file does not appear to be a valid Jupyter Notebook."
+                );
+            }
+
+
+            /* -----------------------------------------
+               Render HTML
+            ----------------------------------------- */
+
+            setLoading(
+                true,
+                "Rendering notebook..."
+            );
+
+            const rendered =
+                await notebookToHTML(
+                    notebook
+                );
+
+
+            /* -----------------------------------------
+               Images
+            ----------------------------------------- */
+
+            setLoading(
+                true,
+                "Loading notebook images..."
+            );
+
+            await waitForImages(
+                rendered
+            );
+
+
+            /* -----------------------------------------
+               Math
+            ----------------------------------------- */
+
+            setLoading(
+                true,
+                "Rendering mathematical formulas..."
+            );
+
+            await waitForMath(
+                rendered
+            );
+
+
+            /* -----------------------------------------
+               Chrome paint delay
+            ----------------------------------------- */
+
+            await new Promise(resolve =>
+                requestAnimationFrame(resolve)
+            );
+
+            await new Promise(resolve =>
+                requestAnimationFrame(resolve)
+            );
+
+            await new Promise(resolve =>
+                setTimeout(resolve, 300)
+            );
+
+
+            /* -----------------------------------------
+               Create PDF
+            ----------------------------------------- */
+
+            setLoading(
+                true,
+                "Creating PDF..."
+            );
+
+            const pdf =
+                await createPDF(
+                    rendered
+                );
+
+
+            /* -----------------------------------------
+               Save
+            ----------------------------------------- */
+
+            setLoading(
+                true,
+                "Saving PDF..."
+            );
+
+            const outputName =
+                selectedFile.name.replace(
+                    /\.ipynb$/i,
+                    ""
+                ) + ".pdf";
+
+            pdf.save(outputName);
+
+
+            /* -----------------------------------------
+               Cleanup
+            ----------------------------------------- */
+
+            rendered.remove();
+
+            setLoading(
+                false
+            );
+
         } catch (error) {
-            throw new Error(
-                "The selected file is not valid JSON."
+
+            console.error(
+                "PDF conversion error:",
+                error
+            );
+
+            setLoading(
+                false
+            );
+
+            showError(
+                error && error.message
+                    ? error.message
+                    : "Conversion failed. Please try again."
             );
         }
-
-        if (
-            !notebook ||
-            !Array.isArray(notebook.cells)
-        ) {
-            throw new Error(
-                "This file does not appear to be a valid Jupyter Notebook."
-            );
-        }
-
-
-        /* -------------------------------------------------
-           CREATE HTML
-        ------------------------------------------------- */
-
-        setLoading(
-            true,
-            "Rendering notebook..."
-        );
-
-        const rendered = await notebookToHTML(notebook);
-
-
-        /* -------------------------------------------------
-           WAIT FOR IMAGES
-        ------------------------------------------------- */
-
-        setLoading(
-            true,
-            "Loading notebook images..."
-        );
-
-        await waitForImages(rendered);
-
-
-        /* -------------------------------------------------
-           WAIT FOR MATHJAX
-        ------------------------------------------------- */
-
-        setLoading(
-            true,
-            "Rendering mathematical formulas..."
-        );
-
-        await waitForMath(rendered);
-
-
-        /* -------------------------------------------------
-           EXTRA CHROME PAINT TIME
-        ------------------------------------------------- */
-
-        await new Promise(resolve =>
-            requestAnimationFrame(resolve)
-        );
-
-        await new Promise(resolve =>
-            requestAnimationFrame(resolve)
-        );
-
-        await new Promise(resolve =>
-            setTimeout(resolve, 300)
-        );
-
-
-        /* -------------------------------------------------
-           CREATE PDF
-        ------------------------------------------------- */
-
-        setLoading(
-            true,
-            "Creating PDF..."
-        );
-
-        const pdf = await createPDF(rendered);
-
-
-        /* -------------------------------------------------
-           SAVE PDF
-        ------------------------------------------------- */
-
-        setLoading(
-            true,
-            "Saving PDF..."
-        );
-
-        const outputName =
-            selectedFile.name.replace(
-                /\.ipynb$/i,
-                ""
-            ) + ".pdf";
-
-        pdf.save(outputName);
-
-
-        /* -------------------------------------------------
-           CLEANUP
-        ------------------------------------------------- */
-
-        rendered.remove();
-
-        setLoading(false);
-
-    } catch (error) {
-
-        console.error("PDF conversion error:", error);
-
-        setLoading(false);
-
-        showError(
-            error && error.message
-                ? error.message
-                : "Conversion failed. Please try again."
-        );
     }
-});
+);
 
 
 /* =========================================================
@@ -303,9 +385,9 @@ async function notebookToHTML(notebook) {
         "notebook-document";
 
 
-    /* -------------------------------------------------
-       Notebook title
-    ------------------------------------------------- */
+    /* -----------------------------------------
+       Title
+    ----------------------------------------- */
 
     if (
         notebook.metadata &&
@@ -321,130 +403,171 @@ async function notebookToHTML(notebook) {
         title.textContent =
             notebook.metadata.title;
 
-        documentElement.appendChild(title);
+        documentElement.appendChild(
+            title
+        );
     }
 
 
-    /* -------------------------------------------------
+    /* -----------------------------------------
        Cells
-    ------------------------------------------------- */
+    ----------------------------------------- */
 
-    notebook.cells.forEach((cell, index) => {
+    notebook.cells.forEach(
+        (cell, index) => {
 
-        const cellElement =
-            document.createElement("section");
+            const cellElement =
+                document.createElement("section");
 
-        cellElement.className =
-            "notebook-cell";
+            cellElement.className =
+                "notebook-cell";
 
-        cellElement.dataset.cellIndex =
-            index;
+            cellElement.dataset.cellIndex =
+                index;
 
 
-        /* =============================================
-           MARKDOWN CELL
-        ============================================= */
+            /* ==============================
+               MARKDOWN
+            ============================== */
 
-        if (cell.cell_type === "markdown") {
+            if (
+                cell.cell_type ===
+                "markdown"
+            ) {
 
-            const markdown =
-                sourceToString(cell.source);
+                const markdown =
+                    sourceToString(
+                        cell.source
+                    );
 
-            let html =
-                window.marked.parse(markdown);
+                let html =
+                    window.marked.parse(
+                        markdown
+                    );
 
-            html =
-                window.DOMPurify.sanitize(
-                    html,
-                    {
-                        USE_PROFILES: {
-                            html: true
+                html =
+                    window.DOMPurify.sanitize(
+                        html
+                    );
+
+                cellElement.innerHTML =
+                    `<div class="markdown-cell">
+                        ${html}
+                    </div>`;
+            }
+
+
+            /* ==============================
+               CODE
+            ============================== */
+
+            else if (
+                cell.cell_type ===
+                "code"
+            ) {
+
+                const source =
+                    sourceToString(
+                        cell.source
+                    );
+
+
+                if (source.trim()) {
+
+                    const pre =
+                        document.createElement(
+                            "pre"
+                        );
+
+                    pre.className =
+                        "code";
+
+
+                    const code =
+                        document.createElement(
+                            "code"
+                        );
+
+                    code.textContent =
+                        source;
+
+
+                    pre.appendChild(
+                        code
+                    );
+
+                    cellElement.appendChild(
+                        pre
+                    );
+                }
+
+
+                /* Outputs */
+
+                if (
+                    Array.isArray(
+                        cell.outputs
+                    )
+                ) {
+
+                    cell.outputs.forEach(
+                        output => {
+
+                            const renderedOutput =
+                                renderOutput(
+                                    output
+                                );
+
+                            if (
+                                renderedOutput
+                            ) {
+
+                                cellElement.appendChild(
+                                    renderedOutput
+                                );
+                            }
                         }
-                    }
-                );
-
-            cellElement.innerHTML =
-                `<div class="markdown-cell">
-                    ${html}
-                </div>`;
-        }
+                    );
+                }
+            }
 
 
-        /* =============================================
-           CODE CELL
-        ============================================= */
+            /* ==============================
+               RAW
+            ============================== */
 
-        else if (cell.cell_type === "code") {
+            else if (
+                cell.cell_type ===
+                "raw"
+            ) {
 
-            const source =
-                sourceToString(cell.source);
-
-            if (source.trim()) {
+                const raw =
+                    sourceToString(
+                        cell.source
+                    );
 
                 const pre =
-                    document.createElement("pre");
+                    document.createElement(
+                        "pre"
+                    );
 
-                pre.className = "code";
+                pre.className =
+                    "raw-cell";
 
-                const code =
-                    document.createElement("code");
+                pre.textContent =
+                    raw;
 
-                code.textContent =
-                    source;
-
-                pre.appendChild(code);
-
-                cellElement.appendChild(pre);
+                cellElement.appendChild(
+                    pre
+                );
             }
 
 
-            /* -----------------------------------------
-               Outputs
-            ----------------------------------------- */
-
-            if (Array.isArray(cell.outputs)) {
-
-                cell.outputs.forEach(output => {
-
-                    const outputElement =
-                        renderOutput(output);
-
-                    if (outputElement) {
-
-                        cellElement.appendChild(
-                            outputElement
-                        );
-                    }
-                });
-            }
+            documentElement.appendChild(
+                cellElement
+            );
         }
-
-
-        /* =============================================
-           RAW CELL
-        ============================================= */
-
-        else if (cell.cell_type === "raw") {
-
-            const raw =
-                sourceToString(cell.source);
-
-            const pre =
-                document.createElement("pre");
-
-            pre.className = "raw-cell";
-
-            pre.textContent =
-                raw;
-
-            cellElement.appendChild(pre);
-        }
-
-
-        documentElement.appendChild(
-            cellElement
-        );
-    });
+    );
 
 
     container.appendChild(
@@ -456,25 +579,26 @@ async function notebookToHTML(notebook) {
     );
 
 
-    /* -------------------------------------------------
+    /* -----------------------------------------
        MathJax
-    ------------------------------------------------- */
+    ----------------------------------------- */
 
     if (
         window.MathJax &&
-        typeof window.MathJax.typesetPromise === "function"
+        typeof window.MathJax.typesetPromise ===
+        "function"
     ) {
 
         try {
 
-            await window.MathJax.typesetPromise([
-                container
-            ]);
+            await window.MathJax.typesetPromise(
+                [container]
+            );
 
         } catch (error) {
 
             console.warn(
-                "MathJax rendering warning:",
+                "MathJax warning:",
                 error
             );
         }
@@ -504,7 +628,7 @@ function sourceToString(source) {
 
 
 /* =========================================================
-   OUTPUT RENDERING
+   OUTPUT
 ========================================================= */
 
 function renderOutput(output) {
@@ -516,49 +640,65 @@ function renderOutput(output) {
     const wrapper =
         document.createElement("div");
 
-    wrapper.className = "output";
+    wrapper.className =
+        "output";
 
 
-    /* -------------------------------------------------
+    /* -----------------------------------------
        STREAM
-    ------------------------------------------------- */
+    ----------------------------------------- */
 
-    if (output.output_type === "stream") {
-
-        const text =
-            sourceToString(output.text);
+    if (
+        output.output_type ===
+        "stream"
+    ) {
 
         const pre =
-            document.createElement("pre");
+            document.createElement(
+                "pre"
+            );
 
         pre.className =
             "output-stream";
 
         pre.textContent =
-            text;
+            sourceToString(
+                output.text
+            );
 
-        wrapper.appendChild(pre);
+        wrapper.appendChild(
+            pre
+        );
 
         return wrapper;
     }
 
 
-    /* -------------------------------------------------
+    /* -----------------------------------------
        ERROR
-    ------------------------------------------------- */
+    ----------------------------------------- */
 
-    if (output.output_type === "error") {
+    if (
+        output.output_type ===
+        "error"
+    ) {
 
         const pre =
-            document.createElement("pre");
+            document.createElement(
+                "pre"
+            );
 
         pre.className =
             "output-error";
 
+
         const traceback =
-            Array.isArray(output.traceback)
+            Array.isArray(
+                output.traceback
+            )
                 ? output.traceback.join("\n")
                 : "";
+
 
         pre.textContent =
             traceback ||
@@ -566,78 +706,89 @@ function renderOutput(output) {
                 output.evalue || ""
             }`;
 
-        wrapper.appendChild(pre);
+
+        wrapper.appendChild(
+            pre
+        );
 
         return wrapper;
     }
 
 
-    /* -------------------------------------------------
+    /* -----------------------------------------
        DISPLAY DATA / EXECUTE RESULT
-    ------------------------------------------------- */
+    ----------------------------------------- */
 
     if (
-        output.output_type === "display_data" ||
-        output.output_type === "execute_result"
+        output.output_type ===
+        "display_data" ||
+        output.output_type ===
+        "execute_result"
     ) {
 
         const data =
             output.data || {};
 
 
-        /* ---------------------------------------------
-           PNG
-        --------------------------------------------- */
+        /* PNG */
 
         if (data["image/png"]) {
 
             const img =
-                document.createElement("img");
+                document.createElement(
+                    "img"
+                );
 
             img.className =
                 "output-image";
 
             img.src =
                 "data:image/png;base64," +
-                cleanBase64(data["image/png"]);
+                cleanBase64(
+                    data["image/png"]
+                );
 
             img.alt =
                 "Notebook output";
 
-            wrapper.appendChild(img);
+            wrapper.appendChild(
+                img
+            );
 
             return wrapper;
         }
 
 
-        /* ---------------------------------------------
-           JPEG
-        --------------------------------------------- */
+        /* JPEG */
 
         if (data["image/jpeg"]) {
 
             const img =
-                document.createElement("img");
+                document.createElement(
+                    "img"
+                );
 
             img.className =
                 "output-image";
 
             img.src =
                 "data:image/jpeg;base64," +
-                cleanBase64(data["image/jpeg"]);
+                cleanBase64(
+                    data["image/jpeg"]
+                );
 
             img.alt =
                 "Notebook output";
 
-            wrapper.appendChild(img);
+            wrapper.appendChild(
+                img
+            );
 
             return wrapper;
         }
 
 
-        /* ---------------------------------------------
-           SVG
-        --------------------------------------------- */
+        /* SVG */
 
         if (data["image/svg+xml"]) {
 
@@ -654,8 +805,11 @@ function renderOutput(output) {
                     }
                 );
 
+
             const div =
-                document.createElement("div");
+                document.createElement(
+                    "div"
+                );
 
             div.className =
                 "output-svg";
@@ -663,15 +817,15 @@ function renderOutput(output) {
             div.innerHTML =
                 svg;
 
-            wrapper.appendChild(div);
+            wrapper.appendChild(
+                div
+            );
 
             return wrapper;
         }
 
 
-        /* ---------------------------------------------
-           HTML
-        --------------------------------------------- */
+        /* HTML */
 
         if (data["text/html"]) {
 
@@ -682,8 +836,11 @@ function renderOutput(output) {
                     )
                 );
 
+
             const div =
-                document.createElement("div");
+                document.createElement(
+                    "div"
+                );
 
             div.className =
                 "output-html";
@@ -691,20 +848,22 @@ function renderOutput(output) {
             div.innerHTML =
                 html;
 
-            wrapper.appendChild(div);
+            wrapper.appendChild(
+                div
+            );
 
             return wrapper;
         }
 
 
-        /* ---------------------------------------------
-           Plain text
-        --------------------------------------------- */
+        /* Plain text */
 
         if (data["text/plain"]) {
 
             const pre =
-                document.createElement("pre");
+                document.createElement(
+                    "pre"
+                );
 
             pre.className =
                 "output-text";
@@ -714,7 +873,9 @@ function renderOutput(output) {
                     data["text/plain"]
                 );
 
-            wrapper.appendChild(pre);
+            wrapper.appendChild(
+                pre
+            );
 
             return wrapper;
         }
@@ -726,7 +887,7 @@ function renderOutput(output) {
 
 
 /* =========================================================
-   CLEAN BASE64
+   BASE64
 ========================================================= */
 
 function cleanBase64(value) {
@@ -739,7 +900,10 @@ function cleanBase64(value) {
         return "";
     }
 
-    return value.replace(/\s/g, "");
+    return value.replace(
+        /\s/g,
+        ""
+    );
 }
 
 
@@ -747,16 +911,22 @@ function cleanBase64(value) {
    WAIT FOR IMAGES
 ========================================================= */
 
-async function waitForImages(container) {
+async function waitForImages(
+    container
+) {
 
     const images =
         Array.from(
-            container.querySelectorAll("img")
+            container.querySelectorAll(
+                "img"
+            )
         );
 
-    if (images.length === 0) {
+
+    if (!images.length) {
         return;
     }
+
 
     await Promise.all(
         images.map(img => {
@@ -765,30 +935,35 @@ async function waitForImages(container) {
                 return Promise.resolve();
             }
 
-            return new Promise(resolve => {
 
-                img.addEventListener(
-                    "load",
-                    resolve,
-                    { once: true }
-                );
+            return new Promise(
+                resolve => {
 
-                img.addEventListener(
-                    "error",
-                    resolve,
-                    { once: true }
-                );
-            });
+                    img.addEventListener(
+                        "load",
+                        resolve,
+                        { once: true }
+                    );
+
+                    img.addEventListener(
+                        "error",
+                        resolve,
+                        { once: true }
+                    );
+                }
+            );
         })
     );
 }
 
 
 /* =========================================================
-   WAIT FOR MATHJAX
+   WAIT FOR MATH
 ========================================================= */
 
-async function waitForMath(container) {
+async function waitForMath(
+    container
+) {
 
     if (
         !window.MathJax ||
@@ -797,26 +972,31 @@ async function waitForMath(container) {
         return;
     }
 
+
     try {
 
-        if (window.MathJax.startup.promise) {
+        if (
+            window.MathJax.startup.promise
+        ) {
+
             await window.MathJax.startup.promise;
         }
+
 
         if (
             typeof window.MathJax.typesetPromise ===
             "function"
         ) {
 
-            await window.MathJax.typesetPromise([
-                container
-            ]);
+            await window.MathJax.typesetPromise(
+                [container]
+            );
         }
 
     } catch (error) {
 
         console.warn(
-            "MathJax wait warning:",
+            "MathJax warning:",
             error
         );
     }
@@ -825,41 +1005,32 @@ async function waitForMath(container) {
 
 /* =========================================================
    CREATE PDF
-   CHROME-SAFE CHUNKED RENDERING
+   CHROME-SAFE CHUNKED VERSION
 ========================================================= */
 
-async function createPDF(element) {
+async function createPDF(
+    element
+) {
 
     if (!element) {
+
         throw new Error(
             "PDF render element not found."
         );
     }
 
 
-    if (!window.jspdf) {
-        throw new Error(
-            "jsPDF is not loaded."
-        );
-    }
+    const {
+        jsPDF
+    } = window.jspdf;
 
 
-    if (!window.html2canvas) {
-        throw new Error(
-            "html2canvas is not loaded."
-        );
-    }
-
-
-    const { jsPDF } =
-        window.jspdf;
-
-
-    /* -------------------------------------------------
-       Force stable layout
-    ------------------------------------------------- */
+    /* -----------------------------------------
+       Stable width
+    ----------------------------------------- */
 
     const renderWidth = 794;
+
 
     element.style.width =
         `${renderWidth}px`;
@@ -883,9 +1054,9 @@ async function createPDF(element) {
         "1";
 
 
-    /* -------------------------------------------------
-       Allow browser to paint
-    ------------------------------------------------- */
+    /* -----------------------------------------
+       Browser paint
+    ----------------------------------------- */
 
     await new Promise(resolve =>
         requestAnimationFrame(resolve)
@@ -896,9 +1067,9 @@ async function createPDF(element) {
     );
 
 
-    /* -------------------------------------------------
-       Measure document
-    ------------------------------------------------- */
+    /* -----------------------------------------
+       Dimensions
+    ----------------------------------------- */
 
     const totalWidth =
         Math.ceil(
@@ -922,16 +1093,9 @@ async function createPDF(element) {
     }
 
 
-    console.log(
-        "PDF dimensions:",
-        totalWidth,
-        totalHeight
-    );
-
-
-    /* -------------------------------------------------
-       Create PDF
-    ------------------------------------------------- */
+    /* -----------------------------------------
+       PDF
+    ----------------------------------------- */
 
     const pdf =
         new jsPDF({
@@ -955,13 +1119,8 @@ async function createPDF(element) {
 
 
     /*
-     * IMPORTANT:
-     *
-     * Never render the whole notebook into one
-     * giant canvas.
-     *
-     * Chrome can return blank canvases when the
-     * DOM becomes very tall.
+     * Small chunks prevent Chrome from creating
+     * one enormous canvas.
      */
 
     const chunkHeight = 900;
@@ -970,11 +1129,12 @@ async function createPDF(element) {
 
 
     let currentY = 0;
+
     let pageNumber = 0;
 
 
     /* =================================================
-       PROCESS CHUNKS
+       CHUNKS
     ================================================= */
 
     while (
@@ -982,7 +1142,9 @@ async function createPDF(element) {
     ) {
 
         const remainingHeight =
-            totalHeight - currentY;
+            totalHeight -
+            currentY;
+
 
         const captureHeight =
             Math.min(
@@ -991,12 +1153,15 @@ async function createPDF(element) {
             );
 
 
-        /* ---------------------------------------------
-           Create isolated wrapper
-        --------------------------------------------- */
+        /* -----------------------------------------
+           Wrapper
+        ----------------------------------------- */
 
         const wrapper =
-            document.createElement("div");
+            document.createElement(
+                "div"
+            );
+
 
         wrapper.style.position =
             "absolute";
@@ -1023,12 +1188,15 @@ async function createPDF(element) {
             "-999999";
 
 
-        /* ---------------------------------------------
-           Clone notebook
-        --------------------------------------------- */
+        /* -----------------------------------------
+           Clone
+        ----------------------------------------- */
 
         const clone =
-            element.cloneNode(true);
+            element.cloneNode(
+                true
+            );
+
 
         clone.style.position =
             "absolute";
@@ -1067,9 +1235,9 @@ async function createPDF(element) {
         );
 
 
-        /* ---------------------------------------------
-           Allow Chrome to paint clone
-        --------------------------------------------- */
+        /* -----------------------------------------
+           Paint clone
+        ----------------------------------------- */
 
         await new Promise(resolve =>
             requestAnimationFrame(resolve)
@@ -1087,9 +1255,9 @@ async function createPDF(element) {
         let canvas;
 
 
-        /* ---------------------------------------------
-           Capture chunk
-        --------------------------------------------- */
+        /* -----------------------------------------
+           html2canvas
+        ----------------------------------------- */
 
         try {
 
@@ -1132,26 +1300,15 @@ async function createPDF(element) {
                     }
                 );
 
-        } catch (error) {
-
-            console.error(
-                "html2canvas error:",
-                error
-            );
-
-            throw new Error(
-                "Chrome could not render part of the notebook. Try refreshing the page and converting again."
-            );
-
         } finally {
 
             wrapper.remove();
         }
 
 
-        /* ---------------------------------------------
-           Validate canvas
-        --------------------------------------------- */
+        /* -----------------------------------------
+           Validate
+        ----------------------------------------- */
 
         if (
             !canvas ||
@@ -1160,29 +1317,28 @@ async function createPDF(element) {
         ) {
 
             throw new Error(
-                `Chrome produced an empty canvas for section ${
-                    pageNumber + 1
-                }.`
+                "Chrome produced an empty canvas while rendering the notebook."
             );
         }
 
 
-        /* ---------------------------------------------
-           Determine PDF slice size
-        --------------------------------------------- */
+        /* -----------------------------------------
+           PDF page size in pixels
+        ----------------------------------------- */
 
         const pixelsPerPdfPage =
             (
                 usableHeight /
                 usableWidth
-            ) * canvas.width;
+            ) *
+            canvas.width;
 
 
         let sourceY = 0;
 
 
         /* =================================================
-           SPLIT CHUNK INTO PDF PAGES
+           PAGES
         ================================================= */
 
         while (
@@ -1192,18 +1348,16 @@ async function createPDF(element) {
             const sourceHeight =
                 Math.min(
                     pixelsPerPdfPage,
-                    canvas.height - sourceY
+                    canvas.height -
+                    sourceY
                 );
 
-
-            /* -----------------------------------------
-               Page canvas
-            ----------------------------------------- */
 
             const pageCanvas =
                 document.createElement(
                     "canvas"
                 );
+
 
             pageCanvas.width =
                 canvas.width;
@@ -1225,6 +1379,7 @@ async function createPDF(element) {
 
             context.fillStyle =
                 "#ffffff";
+
 
             context.fillRect(
                 0,
@@ -1251,10 +1406,6 @@ async function createPDF(element) {
             );
 
 
-            /* -----------------------------------------
-               Convert to JPEG
-            ----------------------------------------- */
-
             const imageData =
                 pageCanvas.toDataURL(
                     "image/jpeg",
@@ -1262,11 +1413,10 @@ async function createPDF(element) {
                 );
 
 
-            /* -----------------------------------------
-               Add PDF page
-            ----------------------------------------- */
+            if (
+                pageNumber > 0
+            ) {
 
-            if (pageNumber > 0) {
                 pdf.addPage();
             }
 
@@ -1275,7 +1425,8 @@ async function createPDF(element) {
                 (
                     sourceHeight /
                     canvas.width
-                ) * usableWidth;
+                ) *
+                usableWidth;
 
 
             pdf.addImage(
@@ -1289,64 +1440,42 @@ async function createPDF(element) {
                 imageHeight,
 
                 undefined,
-
                 "FAST"
             );
 
 
             pageNumber++;
 
-
             sourceY +=
                 sourceHeight;
 
-
-            /* -----------------------------------------
-               Give Chrome time between pages
-            ----------------------------------------- */
 
             await new Promise(resolve =>
                 requestAnimationFrame(resolve)
             );
 
 
-            /* -----------------------------------------
-               Free page canvas
-            ----------------------------------------- */
-
             pageCanvas.width = 1;
             pageCanvas.height = 1;
         }
 
 
-        /* ---------------------------------------------
-           Move to next notebook chunk
-        --------------------------------------------- */
+        /* -----------------------------------------
+           Next chunk
+        ----------------------------------------- */
 
         currentY +=
             captureHeight;
 
 
-        /* ---------------------------------------------
-           Free large canvas
-        --------------------------------------------- */
-
         canvas.width = 1;
         canvas.height = 1;
 
-
-        /* ---------------------------------------------
-           Small Chrome memory pause
-        --------------------------------------------- */
 
         await new Promise(resolve =>
             setTimeout(resolve, 30)
         );
 
-
-        /* ---------------------------------------------
-           Update progress
-        --------------------------------------------- */
 
         const progress =
             Math.min(
@@ -1359,16 +1488,15 @@ async function createPDF(element) {
                 )
             );
 
+
         statusText.textContent =
             `Creating PDF... ${progress}%`;
     }
 
 
-    /* -------------------------------------------------
-       Final validation
-    ------------------------------------------------- */
-
-    if (pageNumber === 0) {
+    if (
+        pageNumber === 0
+    ) {
 
         throw new Error(
             "No PDF pages were generated."
@@ -1381,7 +1509,7 @@ async function createPDF(element) {
 
 
 /* =========================================================
-   LOADING UI
+   LOADING
 ========================================================= */
 
 function setLoading(
@@ -1414,7 +1542,7 @@ function setLoading(
 
 
 /* =========================================================
-   ERROR UI
+   ERROR
 ========================================================= */
 
 function showError(message) {
