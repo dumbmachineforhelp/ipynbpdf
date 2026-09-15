@@ -895,273 +895,336 @@ function renderMimeBundle(data) {
    ========================================================= */
 
 async function createPDF(element) {
+    const { jsPDF } = window.jspdf;
 
-    const {
-        jsPDF
-    } = window.jspdf;
+    const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true
+    });
 
+    const PAGE_WIDTH_MM = 210;
+    const PAGE_HEIGHT_MM = 297;
 
-    /*
-       A4 dimensions in mm.
-    */
+    const MARGIN_MM = 8;
 
-    const pdf =
-        new jsPDF({
-            orientation: "portrait",
-            unit: "mm",
-            format: "a4",
-            compress: true
-        });
+    const CONTENT_WIDTH_MM =
+        PAGE_WIDTH_MM - MARGIN_MM * 2;
 
-
-    /*
-       PDF dimensions.
-    */
-
-    const pageWidth =
-        210;
-
-    const pageHeight =
-        297;
-
+    const CONTENT_HEIGHT_MM =
+        PAGE_HEIGHT_MM - MARGIN_MM * 2;
 
     /*
-       Margins.
-
-       Keeping a small PDF margin gives the notebook
-       the clean appearance of the original version.
-    */
-
-    const margin =
-        8;
-
-
-    const contentWidth =
-        pageWidth - margin * 2;
-
-    const contentHeight =
-        pageHeight - margin * 2;
-
+     * The source notebook is 794px wide.
+     *
+     * This is the same width used by your original
+     * notebook styling.
+     */
+    const SOURCE_WIDTH = 794;
 
     /*
-       Actual notebook size in CSS pixels.
-    */
-
-    const elementWidth =
-        element.scrollWidth;
-
-
-    const elementHeight =
-        element.scrollHeight;
-
-
-    if (
-        elementWidth <= 0 ||
-        elementHeight <= 0
-    ) {
-        throw new Error(
-            "The notebook produced an empty PDF area."
-        );
-    }
-
+     * Scale controls PDF quality vs Chrome memory use.
+     *
+     * 1.35 is a good compromise.
+     */
+    const SCALE = 1.35;
 
     /*
-       The important Chrome optimization:
-
-       DO NOT create a giant canvas at scale 2.
-
-       Instead, capture the notebook in page-sized
-       vertical pieces.
-
-       Scale 1.35 gives substantially less memory
-       pressure than scale 2 while still producing
-       a sharp PDF.
-    */
-
-    const scale =
-        1.35;
-
+     * Get the complete notebook height.
+     */
+    const totalHeight = element.scrollHeight;
 
     /*
-       Convert PDF page height to source CSS pixels.
-
-       We keep the same aspect ratio as the original
-       notebook document.
-    */
-
+     * Calculate how many source pixels correspond
+     * to one A4 page.
+     */
     const sourcePageHeight =
-        elementWidth *
-        contentHeight /
-        contentWidth;
-
+        SOURCE_WIDTH *
+        CONTENT_HEIGHT_MM /
+        CONTENT_WIDTH_MM;
 
     const pageCount =
         Math.ceil(
-            elementHeight /
-            sourcePageHeight
+            totalHeight / sourcePageHeight
         );
-
 
     /*
-       Progress helper.
-    */
+     * Temporary rendering area.
+     *
+     * Only ONE page is placed here at a time.
+     */
+    const pageRenderer =
+        document.createElement("div");
 
-    for (
-        let pageIndex = 0;
-        pageIndex < pageCount;
-        pageIndex++
-    ) {
+    pageRenderer.style.position = "fixed";
+    pageRenderer.style.left = "-100000px";
+    pageRenderer.style.top = "0";
 
-        setStatus(
-            "Creating PDF...",
-            `Rendering page ${pageIndex + 1} of ${pageCount}`
-        );
+    pageRenderer.style.width =
+        `${SOURCE_WIDTH}px`;
 
+    pageRenderer.style.background =
+        "#ffffff";
 
-        /*
-           Determine source crop.
-        */
+    pageRenderer.style.overflow =
+        "hidden";
 
-        const sourceY =
-            pageIndex *
-            sourcePageHeight;
+    pageRenderer.style.pointerEvents =
+        "none";
 
-
-        const remaining =
-            elementHeight -
-            sourceY;
+    document.body.appendChild(
+        pageRenderer
+    );
 
 
-        const currentHeight =
-            Math.min(
-                sourcePageHeight,
-                remaining
+    try {
+
+        for (
+            let pageIndex = 0;
+            pageIndex < pageCount;
+            pageIndex++
+        ) {
+
+            setStatus(
+                "Creating PDF...",
+                `Rendering page ${pageIndex + 1} of ${pageCount}`
             );
 
 
-        /*
-           Capture only the required region.
+            /*
+             * Source coordinates for this page.
+             */
+            const startY =
+                pageIndex *
+                sourcePageHeight;
 
-           The notebook styling itself is untouched.
-        */
+            const remainingHeight =
+                totalHeight - startY;
 
-        const canvas =
-            await html2canvas(
-                element,
-                {
-                    scale: scale,
+            const thisPageHeight =
+                Math.min(
+                    sourcePageHeight,
+                    remainingHeight
+                );
 
-                    x: 0,
-                    y: sourceY,
 
-                    width: elementWidth,
-                    height: currentHeight,
+            /*
+             * Create a page-sized notebook.
+             */
+            const page =
+                document.createElement("div");
 
-                    backgroundColor: "#ffffff",
+            page.className =
+                "notebook-document";
 
-                    useCORS: true,
 
-                    allowTaint: false,
+            /*
+             * Match the original notebook width.
+             */
+            page.style.width =
+                `${SOURCE_WIDTH}px`;
 
-                    imageTimeout: 30000,
+            page.style.height =
+                `${thisPageHeight}px`;
 
-                    logging: false,
+            page.style.padding =
+                "42px 46px";
 
-                    /*
-                       Keep rendering predictable.
-                    */
+            page.style.margin =
+                "0";
 
-                    scrollX: 0,
-                    scrollY: 0,
+            page.style.background =
+                "#ffffff";
 
-                    windowWidth:
-                        Math.max(
-                            document.documentElement.clientWidth,
-                            elementWidth
-                        ),
+            page.style.position =
+                "relative";
 
-                    windowHeight:
-                        Math.max(
-                            window.innerHeight,
-                            900
-                        )
-                }
+            page.style.overflow =
+                "hidden";
+
+
+            /*
+             * Instead of rendering the whole notebook,
+             * copy only the content belonging to this
+             * vertical region.
+             *
+             * We use the original notebook as the source
+             * and shift it upward inside the page.
+             */
+            const content =
+                element.cloneNode(true);
+
+            content.style.position =
+                "absolute";
+
+            content.style.left =
+                "0";
+
+            content.style.top =
+                `${-startY}px`;
+
+            content.style.width =
+                `${SOURCE_WIDTH}px`;
+
+            content.style.margin =
+                "0";
+
+            content.style.padding =
+                "42px 46px";
+
+            content.style.background =
+                "#ffffff";
+
+
+            page.appendChild(
+                content
             );
 
 
-        /*
-           Add a new PDF page after the first.
-        */
+            pageRenderer.appendChild(
+                page
+            );
 
-        if (pageIndex > 0) {
 
-            pdf.addPage();
+            /*
+             * Let Chrome perform layout before capture.
+             */
+            await nextFrame();
 
+
+            /*
+             * Render ONLY this page-sized container.
+             *
+             * cullOffscreen prevents html2canvas from
+             * spending time painting things outside
+             * the capture region.
+             */
+            const canvas =
+                await html2canvas(
+                    page,
+                    {
+                        scale: SCALE,
+
+                        width: SOURCE_WIDTH,
+
+                        height: thisPageHeight,
+
+                        x: 0,
+
+                        y: 0,
+
+                        backgroundColor:
+                            "#ffffff",
+
+                        useCORS: true,
+
+                        allowTaint: false,
+
+                        imageTimeout: 30000,
+
+                        logging: false,
+
+                        cullOffscreen: true,
+
+                        scrollX: 0,
+
+                        scrollY: 0,
+
+                        windowWidth:
+                            SOURCE_WIDTH,
+
+                        windowHeight:
+                            Math.ceil(
+                                thisPageHeight
+                            )
+                    }
+                );
+
+
+            /*
+             * Add PDF page.
+             */
+            if (pageIndex > 0) {
+                pdf.addPage();
+            }
+
+
+            /*
+             * Convert canvas to PNG.
+             *
+             * PNG preserves notebook text much better
+             * than repeatedly JPEG-compressing it.
+             */
+            const imageData =
+                canvas.toDataURL(
+                    "image/png"
+                );
+
+
+            /*
+             * Calculate the actual displayed height.
+             */
+            const imageHeight =
+                CONTENT_WIDTH_MM *
+                canvas.height /
+                canvas.width;
+
+
+            pdf.addImage(
+                imageData,
+                "PNG",
+                MARGIN_MM,
+                MARGIN_MM,
+                CONTENT_WIDTH_MM,
+                Math.min(
+                    imageHeight,
+                    CONTENT_HEIGHT_MM
+                ),
+                undefined,
+                "FAST"
+            );
+
+
+            /*
+             * Very important:
+             * release the large canvas immediately.
+             */
+            canvas.width = 1;
+            canvas.height = 1;
+
+
+            /*
+             * Remove this page before creating
+             * the next one.
+             */
+            pageRenderer.removeChild(
+                page
+            );
+
+
+            /*
+             * Let Chrome breathe between pages.
+             *
+             * This prevents the renderer from accumulating
+             * 95 large canvases at once.
+             */
+            await nextFrame();
+            await nextFrame();
         }
 
 
-        /*
-           Preserve the aspect ratio.
-        */
-
-        const imageWidth =
-            contentWidth;
-
-
-        const imageHeight =
-            imageWidth *
-            canvas.height /
-            canvas.width;
-
+    } finally {
 
         /*
-           PNG keeps text and notebook outputs
-           cleaner than heavily compressed JPEG.
-        */
-
-        const imageData =
-            canvas.toDataURL(
-                "image/png"
-            );
-
-
-        pdf.addImage(
-            imageData,
-            "PNG",
-            margin,
-            margin,
-            imageWidth,
-            Math.min(
-                imageHeight,
-                contentHeight
-            ),
-            undefined,
-            "FAST"
-        );
-
-
-        /*
-           Release the canvas memory immediately.
-
-           This is particularly important for Chrome.
-        */
-
-        canvas.width = 1;
-        canvas.height = 1;
-
-
-        /*
-           Give Chrome a chance to process garbage
-           collection / rendering work before continuing.
-        */
-
-        await nextFrame();
+         * Always clean up, even if one page fails.
+         */
+        pageRenderer.remove();
 
     }
 
 
     return pdf;
-
 }
 
 
