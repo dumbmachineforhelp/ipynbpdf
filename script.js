@@ -1,6 +1,6 @@
 // ============================================================
 // IPYNB → PDF
-// Faster cell-by-cell PDF renderer
+// Stable A4 renderer for Chrome / Brave / Edge / Firefox
 // ============================================================
 
 const fileInput = document.getElementById("fileInput");
@@ -25,12 +25,34 @@ let selectedFile = null;
 
 
 // ============================================================
+// SETTINGS
+// ============================================================
+
+// A4 dimensions at 96 CSS pixels / inch.
+const A4_WIDTH_PX = 794;
+const A4_HEIGHT_PX = 1123;
+
+// PDF margins in mm.
+const PDF_MARGIN = 10;
+
+// Rendering resolution.
+// 1.35 gives considerably better text than 1x without
+// creating enormous canvases.
+const RENDER_SCALE = 1.35;
+
+// JPEG quality.
+// Notebook pages are mostly text/code, so this is intentionally
+// high enough to keep text clean while avoiding huge PDFs.
+const JPEG_QUALITY = 0.94;
+
+
+// ============================================================
 // FILE INPUT
 // ============================================================
 
-fileInput.addEventListener("change", function () {
-    if (this.files && this.files.length > 0) {
-        handleFile(this.files[0]);
+fileInput.addEventListener("change", () => {
+    if (fileInput.files && fileInput.files.length) {
+        handleFile(fileInput.files[0]);
     }
 });
 
@@ -43,6 +65,7 @@ fileInput.addEventListener("change", function () {
     dropZone.addEventListener(eventName, event => {
         event.preventDefault();
         event.stopPropagation();
+
         dropZone.classList.add("drag-over");
     });
 });
@@ -51,6 +74,7 @@ fileInput.addEventListener("change", function () {
     dropZone.addEventListener(eventName, event => {
         event.preventDefault();
         event.stopPropagation();
+
         dropZone.classList.remove("drag-over");
     });
 });
@@ -58,7 +82,7 @@ fileInput.addEventListener("change", function () {
 dropZone.addEventListener("drop", event => {
     const files = event.dataTransfer.files;
 
-    if (files && files.length > 0) {
+    if (files && files.length) {
         handleFile(files[0]);
     }
 });
@@ -75,8 +99,10 @@ removeFile.addEventListener("click", () => {
     fileInfo.classList.add("hidden");
     convertButton.disabled = true;
 
-    hideError();
     hideStatus();
+    hideError();
+
+    clearRenderContainer();
 });
 
 
@@ -103,10 +129,13 @@ function handleFile(file) {
 
 
 // ============================================================
-// CONVERT BUTTON
+// CONVERT
 // ============================================================
 
-convertButton.addEventListener("click", convertNotebook);
+convertButton.addEventListener(
+    "click",
+    convertNotebook
+);
 
 
 // ============================================================
@@ -118,25 +147,26 @@ async function convertNotebook() {
         return;
     }
 
+    convertButton.disabled = true;
+
     hideError();
 
     try {
-        convertButton.disabled = true;
+        checkLibraries();
 
         showStatus(
             "Preparing notebook...",
-            "Reading your .ipynb file"
+            "Reading your file"
         );
 
-        checkLibraries();
-
-        const text = await selectedFile.text();
+        const text =
+            await selectedFile.text();
 
         let notebook;
 
         try {
             notebook = JSON.parse(text);
-        } catch (error) {
+        } catch {
             throw new Error(
                 "The selected file is not valid Jupyter Notebook JSON."
             );
@@ -147,30 +177,48 @@ async function convertNotebook() {
             !Array.isArray(notebook.cells)
         ) {
             throw new Error(
-                "This file does not contain a valid notebook cell list."
+                "This file does not contain a valid Jupyter Notebook."
             );
         }
 
+        if (notebook.cells.length === 0) {
+            throw new Error(
+                "The notebook does not contain any cells."
+            );
+        }
+
+        // Build the notebook DOM ONCE.
         showStatus(
             "Rendering notebook...",
-            `${notebook.cells.length} cells found`
-        );
-
-        await renderNotebook(notebook);
-
-        await waitForMath();
-
-        showStatus(
-            "Creating PDF...",
             "Building the document"
         );
 
-        const pdf = await buildPDF();
-
-        showStatus(
-            "Finishing...",
-            "Preparing your download"
+        await renderNotebook(
+            notebook
         );
+
+        // MathJax is rendered once, not once per PDF page.
+        showStatus(
+            "Rendering equations...",
+            "Finishing mathematical notation"
+        );
+
+        await typesetMath();
+
+        await waitForImages(
+            pdfRenderContainer
+        );
+
+        await waitForPaint();
+
+        // Build PDF.
+        showStatus(
+            "Creating PDF...",
+            "Rendering pages"
+        );
+
+        const pdf =
+            await createPDF();
 
         const outputName =
             selectedFile.name.replace(
@@ -178,71 +226,87 @@ async function convertNotebook() {
                 ""
             ) + ".pdf";
 
+        showStatus(
+            "Downloading...",
+            outputName
+        );
+
+        // Let the browser finish the current paint cycle
+        // before triggering the download.
+        await sleep(100);
+
         pdf.save(outputName);
 
         showStatus(
             "Done!",
-            `${outputName} has been downloaded`
+            "Your PDF has been downloaded."
         );
 
-        await sleep(1500);
+        await sleep(1200);
 
         hideStatus();
 
     } catch (error) {
-        console.error(error);
+        console.error(
+            "IPYNB → PDF error:",
+            error
+        );
 
         showError(
-            error && error.message
-                ? error.message
-                : "An unexpected error occurred while creating the PDF."
+            error?.message ||
+            "Something went wrong while creating the PDF."
         );
 
         hideStatus();
 
     } finally {
         convertButton.disabled = false;
+
+        // Important: don't leave a large hidden DOM behind.
+        clearRenderContainer();
     }
 }
 
 
 // ============================================================
-// LIBRARY CHECK
+// LIBRARIES
 // ============================================================
 
 function checkLibraries() {
     if (!window.marked) {
         throw new Error(
-            "Markdown renderer failed to load."
+            "Markdown library failed to load."
         );
     }
 
     if (!window.DOMPurify) {
         throw new Error(
-            "HTML sanitizer failed to load."
+            "DOMPurify failed to load."
         );
     }
 
     if (!window.html2canvas) {
         throw new Error(
-            "HTML renderer failed to load."
+            "html2canvas failed to load."
         );
     }
 
     if (!window.jspdf) {
         throw new Error(
-            "PDF library failed to load."
+            "jsPDF failed to load."
         );
     }
 }
 
 
 // ============================================================
-// RENDER NOTEBOOK
+// NOTEBOOK → HTML
 // ============================================================
 
-async function renderNotebook(notebook) {
-    pdfRenderContainer.innerHTML = "";
+async function renderNotebook(
+    notebook
+) {
+    clearRenderContainer();
 
     const documentElement =
         document.createElement("div");
@@ -250,10 +314,27 @@ async function renderNotebook(notebook) {
     documentElement.className =
         "notebook-document";
 
-    pdfRenderContainer.appendChild(documentElement);
+    documentElement.style.width =
+        `${A4_WIDTH_PX}px`;
 
-    for (let i = 0; i < notebook.cells.length; i++) {
-        const cell = notebook.cells[i];
+    documentElement.style.boxSizing =
+        "border-box";
+
+    documentElement.style.background =
+        "#ffffff";
+
+    pdfRenderContainer.appendChild(
+        documentElement
+    );
+
+
+    for (
+        let i = 0;
+        i < notebook.cells.length;
+        i++
+    ) {
+        const cell =
+            notebook.cells[i];
 
         showStatus(
             "Rendering notebook...",
@@ -261,82 +342,92 @@ async function renderNotebook(notebook) {
         );
 
         const cellElement =
-            notebookCellToHTML(cell, i);
+            renderCell(
+                cell,
+                i
+            );
 
-        documentElement.appendChild(cellElement);
-
-        // Give the browser a chance to paint.
-        await nextFrame();
-
-        // Render MathJax for this cell if necessary.
-        if (
-            window.MathJax &&
-            typeof window.MathJax.typesetPromise === "function"
-        ) {
-            try {
-                await window.MathJax.typesetPromise(
-                    [cellElement]
-                );
-            } catch (error) {
-                console.warn(
-                    "MathJax rendering warning:",
-                    error
-                );
-            }
-        }
-
-        await waitForImages(cellElement);
+        documentElement.appendChild(
+            cellElement
+        );
     }
 
-    await nextFrame();
+    await waitForImages(
+        documentElement
+    );
+
+    await waitForPaint();
 }
 
 
 // ============================================================
-// NOTEBOOK CELL → HTML
+// CELL RENDERING
 // ============================================================
 
-function notebookCellToHTML(cell, index) {
+function renderCell(
+    cell,
+    index
+) {
     const wrapper =
         document.createElement("section");
 
     wrapper.className =
         "notebook-cell";
 
-    wrapper.dataset.cellIndex = index;
+    wrapper.dataset.cellIndex =
+        index;
 
-    const cellType = cell.cell_type;
 
-    if (cellType === "markdown") {
+    if (
+        cell.cell_type === "markdown"
+    ) {
         wrapper.innerHTML =
             renderMarkdown(
-                sourceToString(cell.source)
+                sourceToString(
+                    cell.source
+                )
             );
 
         return wrapper;
     }
 
-    if (cellType === "raw") {
-        const raw =
+
+    if (
+        cell.cell_type === "raw"
+    ) {
+        const pre =
             document.createElement("pre");
 
-        raw.className = "raw-cell";
+        pre.className =
+            "raw-cell";
 
-        raw.textContent =
-            sourceToString(cell.source);
+        pre.textContent =
+            sourceToString(
+                cell.source
+            );
 
-        wrapper.appendChild(raw);
+        wrapper.appendChild(pre);
 
         return wrapper;
     }
 
-    if (cellType === "code") {
-        renderCodeCell(wrapper, cell);
+
+    if (
+        cell.cell_type === "code"
+    ) {
+        renderCodeCell(
+            wrapper,
+            cell
+        );
+
         return wrapper;
     }
+
 
     wrapper.textContent =
-        sourceToString(cell.source);
+        sourceToString(
+            cell.source
+        );
 
     return wrapper;
 }
@@ -346,17 +437,16 @@ function notebookCellToHTML(cell, index) {
 // MARKDOWN
 // ============================================================
 
-function renderMarkdown(markdown) {
-    const rawHTML =
-        window.marked.parse(markdown || "");
+function renderMarkdown(
+    markdown
+) {
+    const html =
+        window.marked.parse(
+            markdown || ""
+        );
 
     return window.DOMPurify.sanitize(
-        rawHTML,
-        {
-            USE_PROFILES: {
-                html: true
-            }
-        }
+        html
     );
 }
 
@@ -365,12 +455,16 @@ function renderMarkdown(markdown) {
 // CODE CELL
 // ============================================================
 
-function renderCodeCell(wrapper, cell) {
+function renderCodeCell(
+    wrapper,
+    cell
+) {
     const input =
         document.createElement("div");
 
     input.className =
         "code-input";
+
 
     const prompt =
         document.createElement("div");
@@ -379,9 +473,11 @@ function renderCodeCell(wrapper, cell) {
         "cell-prompt";
 
     prompt.textContent =
-        cell.execution_count != null
+        cell.execution_count !== null &&
+        cell.execution_count !== undefined
             ? `In [${cell.execution_count}]:`
             : "In [ ]:";
+
 
     const code =
         document.createElement("pre");
@@ -390,23 +486,39 @@ function renderCodeCell(wrapper, cell) {
         document.createElement("code");
 
     codeElement.textContent =
-        sourceToString(cell.source);
+        sourceToString(
+            cell.source
+        );
 
-    code.appendChild(codeElement);
+    code.appendChild(
+        codeElement
+    );
 
-    input.appendChild(prompt);
-    input.appendChild(code);
+    input.appendChild(
+        prompt
+    );
 
-    wrapper.appendChild(input);
+    input.appendChild(
+        code
+    );
+
+    wrapper.appendChild(
+        input
+    );
 
 
-    // Outputs
     if (
-        Array.isArray(cell.outputs)
+        Array.isArray(
+            cell.outputs
+        )
     ) {
-        for (const output of cell.outputs) {
+        for (
+            const output of cell.outputs
+        ) {
             const outputElement =
-                renderOutput(output);
+                renderOutput(
+                    output
+                );
 
             if (outputElement) {
                 wrapper.appendChild(
@@ -419,10 +531,12 @@ function renderCodeCell(wrapper, cell) {
 
 
 // ============================================================
-// OUTPUT RENDERING
+// OUTPUT
 // ============================================================
 
-function renderOutput(output) {
+function renderOutput(
+    output
+) {
     if (!output) {
         return null;
     }
@@ -435,7 +549,7 @@ function renderOutput(output) {
 
 
     // ------------------------------
-    // Stream output
+    // stdout / stderr
     // ------------------------------
 
     if (
@@ -448,16 +562,20 @@ function renderOutput(output) {
             "stream-output";
 
         pre.textContent =
-            sourceToString(output.text);
+            sourceToString(
+                output.text
+            );
 
-        wrapper.appendChild(pre);
+        wrapper.appendChild(
+            pre
+        );
 
         return wrapper;
     }
 
 
     // ------------------------------
-    // Error output
+    // Error
     // ------------------------------
 
     if (
@@ -469,29 +587,41 @@ function renderOutput(output) {
         pre.className =
             "error-output";
 
-        pre.textContent =
-            Array.isArray(output.traceback)
-                ? output.traceback.join("\n")
-                : [
-                    output.ename || "Error",
+        if (
+            Array.isArray(
+                output.traceback
+            )
+        ) {
+            pre.textContent =
+                output.traceback.join(
+                    "\n"
+                );
+        } else {
+            pre.textContent =
+                `${output.ename || "Error"}: ${
                     output.evalue || ""
-                ].join(": ");
+                }`;
+        }
 
-        wrapper.appendChild(pre);
+        wrapper.appendChild(
+            pre
+        );
 
         return wrapper;
     }
 
 
     // ------------------------------
-    // display_data / execute_result
+    // Rich output
     // ------------------------------
 
     if (
-        output.output_type === "display_data" ||
-        output.output_type === "execute_result"
+        output.output_type ===
+            "display_data" ||
+        output.output_type ===
+            "execute_result"
     ) {
-        return renderMimeBundle(
+        return renderMime(
             output.data || {},
             wrapper
         );
@@ -506,29 +636,27 @@ function renderOutput(output) {
 // MIME DATA
 // ============================================================
 
-function renderMimeBundle(data, wrapper) {
-
-    // Prefer HTML
+function renderMime(
+    data,
+    wrapper
+) {
+    // HTML
     if (data["text/html"]) {
-        const html =
-            sourceToString(data["text/html"]);
-
-        const sanitized =
-            window.DOMPurify.sanitize(
-                html
-            );
-
-        const htmlContainer =
+        const container =
             document.createElement("div");
 
-        htmlContainer.className =
+        container.className =
             "output-html";
 
-        htmlContainer.innerHTML =
-            sanitized;
+        container.innerHTML =
+            window.DOMPurify.sanitize(
+                sourceToString(
+                    data["text/html"]
+                )
+            );
 
         wrapper.appendChild(
-            htmlContainer
+            container
         );
 
         return wrapper;
@@ -549,7 +677,9 @@ function renderMimeBundle(data, wrapper) {
                 data["image/png"]
             );
 
-        wrapper.appendChild(img);
+        wrapper.appendChild(
+            img
+        );
 
         return wrapper;
     }
@@ -569,7 +699,9 @@ function renderMimeBundle(data, wrapper) {
                 data["image/jpeg"]
             );
 
-        wrapper.appendChild(img);
+        wrapper.appendChild(
+            img
+        );
 
         return wrapper;
     }
@@ -577,11 +709,6 @@ function renderMimeBundle(data, wrapper) {
 
     // SVG
     if (data["image/svg+xml"]) {
-        const svg =
-            sourceToString(
-                data["image/svg+xml"]
-            );
-
         const container =
             document.createElement("div");
 
@@ -590,7 +717,9 @@ function renderMimeBundle(data, wrapper) {
 
         container.innerHTML =
             window.DOMPurify.sanitize(
-                svg,
+                sourceToString(
+                    data["image/svg+xml"]
+                ),
                 {
                     USE_PROFILES: {
                         svg: true
@@ -598,7 +727,9 @@ function renderMimeBundle(data, wrapper) {
                 }
             );
 
-        wrapper.appendChild(container);
+        wrapper.appendChild(
+            container
+        );
 
         return wrapper;
     }
@@ -617,7 +748,9 @@ function renderMimeBundle(data, wrapper) {
                 data["text/plain"]
             );
 
-        wrapper.appendChild(pre);
+        wrapper.appendChild(
+            pre
+        );
 
         return wrapper;
     }
@@ -628,56 +761,17 @@ function renderMimeBundle(data, wrapper) {
 
 
 // ============================================================
-// BUILD PDF
+// PDF CREATION
 // ============================================================
 
-async function buildPDF() {
-    const { jsPDF } = window.jspdf;
-
-    const PAGE_WIDTH = 210;
-    const PAGE_HEIGHT = 297;
-
-    const MARGIN = 10;
-
-    const CONTENT_WIDTH =
-        PAGE_WIDTH - MARGIN * 2;
-
-    const CONTENT_HEIGHT =
-        PAGE_HEIGHT - MARGIN * 2;
+async function createPDF() {
+    const { jsPDF } =
+        window.jspdf;
 
 
-    // Width used for HTML rendering.
-    // 794px ≈ A4 at 96 DPI.
-    const RENDER_WIDTH = 794;
-
-    // Moderate scale gives good quality
-    // without creating gigantic canvases.
-    const SCALE = 1.35;
-
-
-    const documentElement =
-        pdfRenderContainer.querySelector(
-            ".notebook-document"
-        );
-
-    if (!documentElement) {
-        throw new Error(
-            "Notebook rendering failed."
-        );
-    }
-
-
-    const cells =
-        Array.from(
-            documentElement.children
-        );
-
-    if (cells.length === 0) {
-        throw new Error(
-            "The notebook appears to be empty."
-        );
-    }
-
+    // --------------------------------------------------------
+    // Create PDF at A4.
+    // --------------------------------------------------------
 
     const pdf =
         new jsPDF({
@@ -688,86 +782,201 @@ async function buildPDF() {
         });
 
 
-    let pageNumber = 0;
+    const documentElement =
+        pdfRenderContainer.querySelector(
+            ".notebook-document"
+        );
 
-    let currentY = MARGIN;
-
-
-    // Convert rendered pixels to PDF mm.
-    const pixelsPerMm =
-        (RENDER_WIDTH * SCALE) /
-        CONTENT_WIDTH;
-
-
-    for (
-        let i = 0;
-        i < cells.length;
-        i++
-    ) {
-        const cell =
-            cells[i];
+    if (!documentElement) {
+        throw new Error(
+            "Nothing was rendered for the PDF."
+        );
+    }
 
 
-        showStatus(
-            "Creating PDF...",
-            `Processing cell ${i + 1} of ${cells.length}`
+    // --------------------------------------------------------
+    // Determine the actual document height.
+    // --------------------------------------------------------
+
+    const totalHeight =
+        Math.ceil(
+            documentElement.scrollHeight
         );
 
 
-        // Make sure cell is visible to html2canvas
-        // but remains completely outside the UI.
-        const renderWrapper =
+    if (totalHeight <= 0) {
+        throw new Error(
+            "The notebook appears to be empty."
+        );
+    }
+
+
+    // --------------------------------------------------------
+    // Convert A4 PDF dimensions to CSS pixels.
+    //
+    // We deliberately use a fixed CSS page height.
+    // This avoids the previous problem where Chrome was
+    // capturing arbitrary portions of the document.
+    // --------------------------------------------------------
+
+    const pageHeightPx =
+        Math.floor(
+            A4_HEIGHT_PX
+        );
+
+
+    const pageWidthPx =
+        Math.floor(
+            A4_WIDTH_PX
+        );
+
+
+    // The page content area in PDF.
+    const contentWidthMm =
+        210 - PDF_MARGIN * 2;
+
+    const contentHeightMm =
+        297 - PDF_MARGIN * 2;
+
+
+    // --------------------------------------------------------
+    // The notebook is rendered at one stable width.
+    // --------------------------------------------------------
+
+    documentElement.style.width =
+        `${pageWidthPx}px`;
+
+
+    documentElement.style.maxWidth =
+        "none";
+
+
+    // --------------------------------------------------------
+    // Render pages one at a time.
+    //
+    // IMPORTANT:
+    // We do NOT clone the whole notebook.
+    // We do NOT move the notebook itself.
+    //
+    // html2canvas receives a dedicated page viewport
+    // containing a clone that is translated internally.
+    // The original notebook never moves.
+    // --------------------------------------------------------
+
+    const pageCount =
+        Math.ceil(
+            totalHeight /
+            pageHeightPx
+        );
+
+
+    for (
+        let page = 0;
+        page < pageCount;
+        page++
+    ) {
+        showStatus(
+            "Creating PDF...",
+            `Page ${page + 1} of ${pageCount}`
+        );
+
+
+        const startY =
+            page *
+            pageHeightPx;
+
+
+        const remaining =
+            totalHeight -
+            startY;
+
+
+        const visibleHeight =
+            Math.min(
+                pageHeightPx,
+                remaining
+            );
+
+
+        // --------------------------------------------
+        // Dedicated capture viewport.
+        // It is far outside the visible screen.
+        // --------------------------------------------
+
+        const viewport =
             document.createElement("div");
 
-        renderWrapper.style.position =
+        viewport.style.position =
             "fixed";
 
-        renderWrapper.style.left =
-            "-100000px";
+        viewport.style.left =
+            "-200000px";
 
-        renderWrapper.style.top =
+        viewport.style.top =
             "0";
 
-        renderWrapper.style.width =
-            `${RENDER_WIDTH}px`;
+        viewport.style.width =
+            `${pageWidthPx}px`;
 
-        renderWrapper.style.background =
+        viewport.style.height =
+            `${visibleHeight}px`;
+
+        viewport.style.overflow =
+            "hidden";
+
+        viewport.style.background =
             "#ffffff";
 
-        renderWrapper.style.padding =
-            "0";
+        viewport.style.pointerEvents =
+            "none";
 
-        renderWrapper.style.margin =
-            "0";
-
-        renderWrapper.style.overflow =
-            "visible";
+        viewport.style.zIndex =
+            "-999999";
 
 
-        // Clone ONLY this cell.
+        // --------------------------------------------
+        // Clone only for the capture operation.
+        // The clone is never shown to the user.
+        // --------------------------------------------
+
         const clone =
-            cell.cloneNode(true);
+            documentElement.cloneNode(
+                true
+            );
+
+
+        clone.style.position =
+            "absolute";
+
+        clone.style.left =
+            "0";
+
+        clone.style.top =
+            `${-startY}px`;
 
         clone.style.width =
-            `${RENDER_WIDTH}px`;
+            `${pageWidthPx}px`;
 
         clone.style.margin =
             "0";
 
-        clone.style.boxSizing =
-            "border-box";
+        clone.style.padding =
+            getComputedStyle(
+                documentElement
+            ).padding;
 
 
-        renderWrapper.appendChild(
+        viewport.appendChild(
             clone
         );
 
         document.body.appendChild(
-            renderWrapper
+            viewport
         );
 
 
-        await nextFrame();
+        // Give Chrome/Brave/Firefox one paint cycle.
+        await waitForPaint();
 
 
         let canvas = null;
@@ -776,18 +985,29 @@ async function buildPDF() {
         try {
             canvas =
                 await html2canvas(
-                    renderWrapper,
+                    viewport,
                     {
                         backgroundColor:
                             "#ffffff",
 
-                        scale: SCALE,
+                        scale:
+                            RENDER_SCALE,
 
                         width:
-                            RENDER_WIDTH,
+                            pageWidthPx,
+
+                        height:
+                            visibleHeight,
 
                         windowWidth:
-                            RENDER_WIDTH,
+                            pageWidthPx,
+
+                        windowHeight:
+                            visibleHeight,
+
+                        scrollX: 0,
+
+                        scrollY: 0,
 
                         useCORS:
                             true,
@@ -795,19 +1015,22 @@ async function buildPDF() {
                         allowTaint:
                             false,
 
+                        imageTimeout:
+                            15000,
+
                         logging:
                             false,
 
-                        imageTimeout:
-                            10000,
-
                         foreignObjectRendering:
-                            false
+                            false,
+
+                        removeContainer:
+                            true
                     }
                 );
 
         } finally {
-            renderWrapper.remove();
+            viewport.remove();
         }
 
 
@@ -816,120 +1039,81 @@ async function buildPDF() {
             canvas.width <= 0 ||
             canvas.height <= 0
         ) {
-            continue;
+            throw new Error(
+                `Failed to render PDF page ${page + 1}.`
+            );
         }
 
 
-        // Height of this cell in PDF millimeters.
-        const cellHeight =
-            canvas.height /
-            pixelsPerMm;
+        // --------------------------------------------
+        // Calculate exact PDF image size.
+        // --------------------------------------------
+
+        const imageWidth =
+            contentWidthMm;
 
 
-        // ----------------------------------------------------
-        // If the cell doesn't fit, start a new page.
-        // ----------------------------------------------------
+        const imageHeight =
+            Math.min(
+                contentHeightMm,
+                (
+                    canvas.height /
+                    canvas.width
+                ) *
+                imageWidth
+            );
 
-        if (
-            currentY > MARGIN &&
-            currentY + cellHeight >
-            PAGE_HEIGHT - MARGIN
-        ) {
+
+        // --------------------------------------------
+        // PNG is used for notebook pages.
+        //
+        // This keeps the text much cleaner than the
+        // previous JPEG-heavy approach.
+        // --------------------------------------------
+
+        const imageData =
+            canvas.toDataURL(
+                "image/png"
+            );
+
+
+        if (page > 0) {
             pdf.addPage();
-
-            pageNumber++;
-
-            currentY = MARGIN;
         }
 
 
-        // ----------------------------------------------------
-        // If a single cell is taller than a page,
-        // split its canvas vertically.
-        // ----------------------------------------------------
-
-        if (
-            cellHeight >
-            CONTENT_HEIGHT
-        ) {
-            await addTallCanvas(
-                pdf,
-                canvas,
-                {
-                    margin: MARGIN,
-                    pageWidth: CONTENT_WIDTH,
-                    pageHeight: CONTENT_HEIGHT,
-                    pixelsPerMm
-                }
-            );
-
-            pageNumber++;
-
-            currentY =
-                MARGIN;
-
-        } else {
-
-            // PNG keeps text/code sharper than JPEG.
-            const imageData =
-                canvas.toDataURL(
-                    "image/png"
-                );
+        pdf.addImage(
+            imageData,
+            "PNG",
+            PDF_MARGIN,
+            PDF_MARGIN,
+            imageWidth,
+            imageHeight,
+            undefined,
+            "FAST"
+        );
 
 
-            if (
-                pageNumber === 0 &&
-                currentY === MARGIN
-            ) {
-                // First page already exists.
-            }
+        // --------------------------------------------
+        // Destroy canvas immediately.
+        // This is important in Chrome.
+        // --------------------------------------------
 
-
-            pdf.addImage(
-                imageData,
-                "PNG",
-                MARGIN,
-                currentY,
-                CONTENT_WIDTH,
-                cellHeight,
-                undefined,
-                "FAST"
-            );
-
-
-            currentY +=
-                cellHeight;
-
-
-            // Small gap between cells.
-            currentY += 3;
-        }
-
-
-        // Release canvas memory.
         canvas.width = 1;
         canvas.height = 1;
-
         canvas = null;
 
 
-        // Let Chrome release memory.
-        await nextFrame();
+        // Let the browser release memory before
+        // starting the next page.
+        await waitForPaint();
 
-        if (i % 3 === 0) {
+
+        if (
+            page % 2 === 1
+        ) {
             await sleep(20);
         }
-    }
-
-
-    // Remove an empty trailing page situation.
-    if (
-        pdf.getNumberOfPages() > 1 &&
-        currentY === MARGIN
-    ) {
-        pdf.deletePage(
-            pdf.getNumberOfPages()
-        );
     }
 
 
@@ -938,157 +1122,80 @@ async function buildPDF() {
 
 
 // ============================================================
-// HANDLE VERY TALL CELLS
+// MATHJAX
 // ============================================================
 
-async function addTallCanvas(
-    pdf,
-    canvas,
-    options
-) {
-    const {
-        margin,
-        pageWidth,
-        pageHeight,
-        pixelsPerMm
-    } = options;
-
-
-    const pagePixelHeight =
-        Math.floor(
-            pageHeight *
-            pixelsPerMm
-        );
-
-
-    let sourceY = 0;
-
-    let firstPart = true;
-
-
-    while (
-        sourceY < canvas.height
+async function typesetMath() {
+    if (
+        !window.MathJax ||
+        typeof window.MathJax.typesetPromise !==
+            "function"
     ) {
-        const sliceHeight =
-            Math.min(
-                pagePixelHeight,
-                canvas.height - sourceY
-            );
-
-
-        const slice =
-            document.createElement(
-                "canvas"
-            );
-
-        slice.width =
-            canvas.width;
-
-        slice.height =
-            sliceHeight;
-
-
-        const context =
-            slice.getContext(
-                "2d"
-            );
-
-
-        context.drawImage(
-            canvas,
-
-            0,
-            sourceY,
-
-            canvas.width,
-            sliceHeight,
-
-            0,
-            0,
-
-            canvas.width,
-            sliceHeight
-        );
-
-
-        if (!firstPart) {
-            pdf.addPage();
-        }
-
-        firstPart = false;
-
-
-        const imageData =
-            slice.toDataURL(
-                "image/png"
-            );
-
-
-        const imageHeight =
-            slice.height /
-            pixelsPerMm;
-
-
-        pdf.addImage(
-            imageData,
-            "PNG",
-            margin,
-            margin,
-            pageWidth,
-            imageHeight,
-            undefined,
-            "FAST"
-        );
-
-
-        slice.width = 1;
-        slice.height = 1;
-
-
-        sourceY +=
-            sliceHeight;
-
-
-        await nextFrame();
+        return;
     }
+
+    try {
+        await window.MathJax.typesetPromise([
+            pdfRenderContainer
+        ]);
+    } catch (error) {
+        console.warn(
+            "MathJax rendering warning:",
+            error
+        );
+    }
+
+    await waitForPaint();
 }
 
 
 // ============================================================
-// WAIT FOR IMAGES
+// IMAGE WAIT
 // ============================================================
 
 async function waitForImages(
-    element
+    root
 ) {
     const images =
         Array.from(
-            element.querySelectorAll(
+            root.querySelectorAll(
                 "img"
             )
         );
 
 
-    if (images.length === 0) {
+    if (!images.length) {
         return;
     }
 
 
     await Promise.all(
         images.map(
-            img =>
+            image =>
                 new Promise(resolve => {
 
-                    if (img.complete) {
+                    if (
+                        image.complete
+                    ) {
                         resolve();
                         return;
                     }
 
-                    img.onload =
-                        resolve;
+                    image.addEventListener(
+                        "load",
+                        resolve,
+                        {
+                            once: true
+                        }
+                    );
 
-                    img.onerror =
-                        resolve;
+                    image.addEventListener(
+                        "error",
+                        resolve,
+                        {
+                            once: true
+                        }
+                    );
                 })
         )
     );
@@ -1096,42 +1203,15 @@ async function waitForImages(
 
 
 // ============================================================
-// WAIT FOR MATHJAX
+// PAINT HELPERS
 // ============================================================
 
-async function waitForMath() {
-    if (
-        !window.MathJax
-    ) {
-        return;
-    }
-
-    if (
-        typeof window.MathJax.typesetPromise ===
-        "function"
-    ) {
-        try {
-            await window.MathJax.typesetPromise();
-        } catch (error) {
-            console.warn(
-                "MathJax warning:",
-                error
-            );
-        }
-    }
-
-    await nextFrame();
-}
-
-
-// ============================================================
-// PAINT / FRAME HELPERS
-// ============================================================
-
-function nextFrame() {
+function waitForPaint() {
     return new Promise(resolve => {
         requestAnimationFrame(() => {
-            resolve();
+            requestAnimationFrame(() => {
+                resolve();
+            });
         });
     });
 }
@@ -1176,10 +1256,12 @@ function hideStatus() {
 
 
 // ============================================================
-// ERRORS
+// ERROR
 // ============================================================
 
-function showError(message) {
+function showError(
+    message
+) {
     errorMessage.textContent =
         message;
 
@@ -1200,11 +1282,29 @@ function hideError() {
 
 
 // ============================================================
+// CLEANUP
+// ============================================================
+
+function clearRenderContainer() {
+    if (
+        pdfRenderContainer
+    ) {
+        pdfRenderContainer.innerHTML =
+            "";
+    }
+}
+
+
+// ============================================================
 // UTILITIES
 // ============================================================
 
-function sourceToString(source) {
-    if (Array.isArray(source)) {
+function sourceToString(
+    source
+) {
+    if (
+        Array.isArray(source)
+    ) {
         return source.join("");
     }
 
@@ -1219,12 +1319,17 @@ function sourceToString(source) {
 }
 
 
-function formatFileSize(bytes) {
+function formatFileSize(
+    bytes
+) {
     if (bytes < 1024) {
         return `${bytes} B`;
     }
 
-    if (bytes < 1024 * 1024) {
+    if (
+        bytes <
+        1024 * 1024
+    ) {
         return `${(
             bytes / 1024
         ).toFixed(1)} KB`;
