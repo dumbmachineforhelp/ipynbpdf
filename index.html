@@ -1,102 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>IPYNB → PDF</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>IPYNB to PDF Converter</title>
 
     <link rel="stylesheet" href="style.css">
+
+    <!-- Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/lib/marked.umd.js"></script>
+
+    <!-- HTML sanitization -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+
+    <!-- HTML to canvas -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+    <!-- PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+
+    <!-- MathJax configuration -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [
+                    ["$", "$"],
+                    ["\\(", "\\)"]
+                ],
+                displayMath: [
+                    ["$$", "$$"],
+                    ["\\[", "\\]"]
+                ]
+            },
+            svg: {
+                fontCache: "global"
+            }
+        };
+    </script>
+
+    <!-- MathJax -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 </head>
 
 <body>
 
-<main class="container">
+    <main class="app">
 
-    <div class="card">
+        <div class="container">
 
-        <div class="logo">
-            📓
-        </div>
+            <h1>IPYNB to PDF</h1>
 
-        <h1>IPYNB → PDF</h1>
+            <p class="subtitle">
+                Convert your Jupyter Notebook into a PDF directly in your browser.
+            </p>
 
-        <p class="subtitle">
-            Convert your Jupyter Notebook into a PDF
-            directly in your browser.
-        </p>
+            <!-- Upload area -->
+            <div id="dropZone" class="drop-zone">
 
-        <div id="dropZone" class="drop-zone">
+                <div class="upload-icon">📄</div>
 
-            <div class="upload-icon">↑</div>
+                <h2>Drop your .ipynb file here</h2>
 
-            <h2>Drop your notebook here</h2>
+                <p>or click to choose a file</p>
 
-            <p>or click to browse</p>
+                <input
+                    type="file"
+                    id="notebook"
+                    accept=".ipynb,application/json"
+                    hidden
+                >
 
-            <span>.ipynb files only</span>
+            </div>
 
-            <input
-                type="file"
-                id="notebook"
-                accept=".ipynb"
-                hidden
+            <!-- Selected file -->
+            <div id="fileInfo" class="file-info hidden">
+
+                <div>
+                    <strong>Selected file:</strong>
+
+                    <span id="fileName"></span>
+                </div>
+
+                <button
+                    id="removeFile"
+                    type="button"
+                    class="remove-button"
+                >
+                    Remove
+                </button>
+
+            </div>
+
+            <!-- Convert button -->
+            <button
+                id="convertButton"
+                class="convert-button"
+                type="button"
+                disabled
             >
+                Convert to PDF
+            </button>
+
+            <!-- Status -->
+            <div id="status" class="status hidden">
+
+                <div class="spinner"></div>
+
+                <span id="statusText">
+                    Preparing...
+                </span>
+
+            </div>
+
+            <!-- Error -->
+            <div id="error" class="error hidden"></div>
+
+            <p class="footer">
+                Your notebook stays in your browser.
+            </p>
 
         </div>
 
-        <div id="fileInfo" class="file-info hidden">
+    </main>
 
-            <span>📓</span>
+    <!-- Your JavaScript MUST be last -->
+    <script src="script.js"></script>
 
-            <span id="fileName"></span>
-
-            <button id="removeFile">×</button>
-
-        </div>
-
-        <button
-            id="convertButton"
-            class="convert-button"
-            disabled>
-
-            Convert to PDF
-
-        </button>
-
-        <div id="status" class="status hidden">
-
-            <div class="spinner"></div>
-
-            <span id="statusText">
-                Converting...
-            </span>
-
-        </div>
-
-        <div id="error" class="error hidden"></div>
-
-        <p class="footer">
-            Your notebook stays in your browser.
-        </p>
-
-    </div>
-
-</main>
-
-<script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/lib/marked.umd.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-
-<script>
-    console.log("Marked:", window.marked);
-    console.log("DOMPurify:", window.DOMPurify);
-    console.log("html2canvas:", window.html2canvas);
-    console.log("jsPDF:", window.jspdf);
-</script>
-
-<script src="script.js"></script>
 </body>
 </html>
