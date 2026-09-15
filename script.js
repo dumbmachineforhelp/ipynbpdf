@@ -1,41 +1,25 @@
-const dropZone =
-    document.getElementById("dropZone");
-
-const fileInput =
-    document.getElementById("notebook");
-
-const fileInfo =
-    document.getElementById("fileInfo");
-
-const fileName =
-    document.getElementById("fileName");
-
-const removeFile =
-    document.getElementById("removeFile");
-
-const convertButton =
-    document.getElementById("convertButton");
-
-const status =
-    document.getElementById("status");
-
-const statusText =
-    document.getElementById("statusText");
-
-const errorBox =
-    document.getElementById("error");
-
+const dropZone = document.getElementById("dropZone");
+const fileInput = document.getElementById("notebook");
+const fileInfo = document.getElementById("fileInfo");
+const fileName = document.getElementById("fileName");
+const removeFile = document.getElementById("removeFile");
+const convertButton = document.getElementById("convertButton");
+const status = document.getElementById("status");
+const statusText = document.getElementById("statusText");
+const errorBox = document.getElementById("error");
 
 let selectedFile = null;
 
 
-// Open file selector
+// --------------------------------------------------
+// File selection
+// --------------------------------------------------
+
 dropZone.addEventListener("click", () => {
     fileInput.click();
 });
 
 
-// File selected
 fileInput.addEventListener("change", () => {
 
     if (fileInput.files.length > 0) {
@@ -45,7 +29,6 @@ fileInput.addEventListener("change", () => {
 });
 
 
-// Drag over
 dropZone.addEventListener("dragover", (event) => {
 
     event.preventDefault();
@@ -55,7 +38,6 @@ dropZone.addEventListener("dragover", (event) => {
 });
 
 
-// Drag leave
 dropZone.addEventListener("dragleave", () => {
 
     dropZone.classList.remove("dragover");
@@ -63,7 +45,6 @@ dropZone.addEventListener("dragleave", () => {
 });
 
 
-// Drop file
 dropZone.addEventListener("drop", (event) => {
 
     event.preventDefault();
@@ -83,9 +64,7 @@ function selectFile(file) {
 
     if (!file.name.toLowerCase().endsWith(".ipynb")) {
 
-        showError(
-            "Please select a .ipynb file."
-        );
+        showError("Please select a .ipynb file.");
 
         return;
     }
@@ -102,7 +81,10 @@ function selectFile(file) {
 }
 
 
+// --------------------------------------------------
 // Remove file
+// --------------------------------------------------
+
 removeFile.addEventListener("click", () => {
 
     selectedFile = null;
@@ -118,7 +100,10 @@ removeFile.addEventListener("click", () => {
 });
 
 
+// --------------------------------------------------
 // Convert
+// --------------------------------------------------
+
 convertButton.addEventListener("click", async () => {
 
     if (!selectedFile) {
@@ -131,10 +116,10 @@ convertButton.addEventListener("click", async () => {
 
     status.classList.remove("hidden");
 
-    statusText.textContent =
-        "Reading your notebook...";
-
     try {
+
+        statusText.textContent =
+            "Reading notebook...";
 
         const text =
             await selectedFile.text();
@@ -143,35 +128,42 @@ convertButton.addEventListener("click", async () => {
             JSON.parse(text);
 
 
+        validateNotebook(notebook);
+
+
         statusText.textContent =
-            "Creating PDF...";
+            "Rendering notebook...";
 
 
-        const pdfBlob =
-            await notebookToPDF(notebook);
+        const element =
+            await notebookToHTML(notebook);
 
 
-        const url =
-            URL.createObjectURL(pdfBlob);
+        statusText.textContent =
+            "Preparing PDF...";
 
-        const link =
-            document.createElement("a");
 
-        link.href = url;
+        await waitForImages(element);
 
-        link.download =
+        await waitForMath();
+
+
+        statusText.textContent =
+            "Generating PDF...";
+
+
+        const pdf =
+            await createPDF(element);
+
+
+        const filename =
             selectedFile.name.replace(
                 /\.ipynb$/i,
                 ".pdf"
             );
 
-        document.body.appendChild(link);
 
-        link.click();
-
-        link.remove();
-
-        URL.revokeObjectURL(url);
+        pdf.save(filename);
 
 
         statusText.textContent =
@@ -198,366 +190,579 @@ convertButton.addEventListener("click", async () => {
 });
 
 
-// Convert notebook
-async function notebookToPDF(notebook) {
+// --------------------------------------------------
+// Validate notebook
+// --------------------------------------------------
 
-    // Create printable HTML
-    let html = `
-<!DOCTYPE html>
-<html>
-<head>
+function validateNotebook(notebook) {
 
-<meta charset="UTF-8">
+    if (!notebook ||
+        typeof notebook !== "object") {
 
-<style>
+        throw new Error(
+            "Invalid notebook file."
+        );
+    }
 
-body {
-    font-family: Arial, sans-serif;
-    color: #111;
-    padding: 30px;
-    line-height: 1.5;
+    if (!Array.isArray(notebook.cells)) {
+
+        throw new Error(
+            "This file does not contain notebook cells."
+        );
+    }
+
 }
 
-h1, h2, h3 {
-    margin-top: 25px;
-}
 
-.cell {
-    margin-bottom: 25px;
-}
+// --------------------------------------------------
+// Render notebook
+// --------------------------------------------------
 
-.code {
-    background: #f5f5f5;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 12px;
-    white-space: pre-wrap;
-    font-family: monospace;
-}
+async function notebookToHTML(notebook) {
 
-.output {
-    background: #fafafa;
-    border-left: 4px solid #6366f1;
-    padding: 10px;
-    margin-top: 10px;
-    white-space: pre-wrap;
-}
+    const wrapper =
+        document.createElement("div");
 
-img {
-    max-width: 100%;
-}
-
-</style>
-
-</head>
-
-<body>
-`;
+    wrapper.className =
+        "notebook-document";
 
 
-    for (const cell of notebook.cells || []) {
+    // Notebook title
 
-        html += `<div class="cell">`;
+    if (notebook.metadata?.title) {
+
+        const title =
+            document.createElement("h1");
+
+        title.className =
+            "notebook-title";
+
+        title.textContent =
+            notebook.metadata.title;
+
+        wrapper.appendChild(title);
+
+    }
 
 
+    for (const cell of notebook.cells) {
+
+        const cellElement =
+            document.createElement("section");
+
+        cellElement.className =
+            "notebook-cell";
+
+
+        // ------------------------------------------
         // Markdown
+        // ------------------------------------------
+
         if (cell.cell_type === "markdown") {
 
-            html +=
-                markdownToHTML(
-                    cell.source || ""
-                );
+            const markdown =
+                Array.isArray(cell.source)
+                    ? cell.source.join("")
+                    : (cell.source || "");
 
+
+            const html =
+                marked.parse(markdown);
+
+
+            cellElement.innerHTML =
+                DOMPurify.sanitize(html);
+
+            wrapper.appendChild(cellElement);
+
+            continue;
         }
 
 
+        // ------------------------------------------
         // Code
-        else if (cell.cell_type === "code") {
+        // ------------------------------------------
 
-            html += `
-<div class="code">${escapeHTML(
-                cell.source || ""
-            )}</div>
-`;
+        if (cell.cell_type === "code") {
+
+            const source =
+                Array.isArray(cell.source)
+                    ? cell.source.join("")
+                    : (cell.source || "");
 
 
+            const code =
+                document.createElement("pre");
+
+            code.className =
+                "code";
+
+
+            const codeElement =
+                document.createElement("code");
+
+            codeElement.textContent =
+                source;
+
+
+            code.appendChild(codeElement);
+
+            cellElement.appendChild(code);
+
+
+            // --------------------------------------
             // Outputs
-            for (
-                const output of
-                cell.outputs || []
-            ) {
+            // --------------------------------------
 
-                html += outputToHTML(output);
+            for (const output of cell.outputs || []) {
+
+                const outputElement =
+                    renderOutput(output);
+
+
+                if (outputElement) {
+
+                    cellElement.appendChild(
+                        outputElement
+                    );
+
+                }
 
             }
 
+
+            wrapper.appendChild(cellElement);
         }
 
+    }
 
-        html += `</div>`;
+
+    // Put into temporary container so MathJax
+    // and image loading can operate on it.
+
+    const container =
+        document.createElement("div");
+
+    container.className =
+        "pdf-render-container";
+
+
+    container.appendChild(wrapper);
+
+
+    document.body.appendChild(container);
+
+
+    // MathJax
+
+    if (window.MathJax) {
+
+        await MathJax.typesetPromise([
+            container
+        ]);
 
     }
 
 
-    html += `
-</body>
-</html>
-`;
-
-
-    return await createPDF(html);
+    return container;
 }
 
 
-// Basic Markdown rendering
-function markdownToHTML(text) {
+// --------------------------------------------------
+// Render outputs
+// --------------------------------------------------
 
-    let result =
-        escapeHTML(text);
+function renderOutput(output) {
 
+    const container =
+        document.createElement("div");
 
-    result =
-        result.replace(
-            /^### (.*)$/gm,
-            "<h3>$1</h3>"
-        );
-
-    result =
-        result.replace(
-            /^## (.*)$/gm,
-            "<h2>$1</h2>"
-        );
-
-    result =
-        result.replace(
-            /^# (.*)$/gm,
-            "<h1>$1</h1>"
-        );
-
-    result =
-        result.replace(
-            /\*\*(.*?)\*\*/g,
-            "<strong>$1</strong>"
-        );
-
-    result =
-        result.replace(
-            /\*(.*?)\*/g,
-            "<em>$1</em>"
-        );
-
-    result =
-        result.replace(
-            /\n/g,
-            "<br>"
-        );
-
-    return result;
-}
+    container.className =
+        "output";
 
 
-// Convert outputs to HTML
-function outputToHTML(output) {
+    // ----------------------------------------------
+    // Stream
+    // ----------------------------------------------
 
-    if (
-        output.output_type ===
-        "stream"
-    ) {
+    if (output.output_type === "stream") {
 
-        return `
-<div class="output">
-${escapeHTML(output.text || "")}
-</div>
-`;
+        const text =
+            Array.isArray(output.text)
+                ? output.text.join("")
+                : (output.text || "");
 
+
+        const pre =
+            document.createElement("pre");
+
+        pre.textContent =
+            text;
+
+
+        container.appendChild(pre);
+
+        return container;
     }
 
 
-    if (
-        output.output_type ===
-        "error"
-    ) {
+    // ----------------------------------------------
+    // Error
+    // ----------------------------------------------
 
-        return `
-<div class="output">
-<strong>${escapeHTML(
-            output.ename || "Error"
-        )}</strong>
+    if (output.output_type === "error") {
 
-<br>
+        const title =
+            document.createElement("strong");
 
-${escapeHTML(
-            (output.traceback || []).join("\n")
-        )}
+        title.textContent =
+            `${output.ename || "Error"}: ${
+                output.evalue || ""
+            }`;
 
-</div>
-`;
 
+        const traceback =
+            document.createElement("pre");
+
+
+        traceback.textContent =
+            Array.isArray(output.traceback)
+                ? output.traceback.join("\n")
+                : "";
+
+
+        container.appendChild(title);
+
+        container.appendChild(traceback);
+
+        return container;
     }
 
 
-    if (
-        output.data
-    ) {
+    // ----------------------------------------------
+    // Rich MIME output
+    // ----------------------------------------------
+
+    if (output.data) {
 
         // PNG
-        if (
-            output.data["image/png"]
-        ) {
 
-            return `
-<div class="output">
-<img src="data:image/png;base64,${
-                output.data["image/png"]
-            }">
-</div>
-`;
+        if (output.data["image/png"]) {
 
+            const img =
+                document.createElement("img");
+
+            img.src =
+                `data:image/png;base64,${cleanBase64(
+                    output.data["image/png"]
+                )}`;
+
+            img.className =
+                "output-image";
+
+            container.appendChild(img);
+
+            return container;
         }
 
 
         // JPEG
-        if (
-            output.data["image/jpeg"]
-        ) {
 
-            return `
-<div class="output">
-<img src="data:image/jpeg;base64,${
-                output.data["image/jpeg"]
-            }">
-</div>
-`;
+        if (output.data["image/jpeg"]) {
 
+            const img =
+                document.createElement("img");
+
+            img.src =
+                `data:image/jpeg;base64,${cleanBase64(
+                    output.data["image/jpeg"]
+                )}`;
+
+            img.className =
+                "output-image";
+
+            container.appendChild(img);
+
+            return container;
+        }
+
+
+        // SVG
+
+        if (output.data["image/svg+xml"]) {
+
+            const svg =
+                output.data["image/svg+xml"];
+
+
+            container.innerHTML =
+                DOMPurify.sanitize(
+                    Array.isArray(svg)
+                        ? svg.join("")
+                        : svg
+                );
+
+
+            return container;
         }
 
 
         // HTML
-        if (
-            output.data["text/html"]
-        ) {
 
-            return `
-<div class="output">
-${output.data["text/html"]}
-</div>
-`;
+        if (output.data["text/html"]) {
 
+            const html =
+                Array.isArray(
+                    output.data["text/html"]
+                )
+                    ? output.data["text/html"].join("")
+                    : output.data["text/html"];
+
+
+            container.innerHTML =
+                DOMPurify.sanitize(html, {
+                    ADD_TAGS: [
+                        "iframe"
+                    ]
+                });
+
+
+            return container;
         }
 
 
         // Plain text
-        if (
-            output.data["text/plain"]
-        ) {
 
-            return `
-<div class="output">
-${escapeHTML(
-                output.data["text/plain"]
-            )}
-</div>
-`;
+        if (output.data["text/plain"]) {
 
+            const text =
+                Array.isArray(
+                    output.data["text/plain"]
+                )
+                    ? output.data["text/plain"].join("")
+                    : output.data["text/plain"];
+
+
+            const pre =
+                document.createElement("pre");
+
+            pre.textContent =
+                text;
+
+
+            container.appendChild(pre);
+
+            return container;
         }
 
     }
 
 
-    return "";
+    return null;
 }
 
 
-// Browser PDF generation
-async function createPDF(html) {
+// --------------------------------------------------
+// Base64 cleanup
+// --------------------------------------------------
 
-    /*
-       Uses the browser print dialog.
+function cleanBase64(data) {
 
-       A real PDF engine cannot be executed
-       directly by GitHub Pages.
+    if (Array.isArray(data)) {
+        data = data.join("");
+    }
 
-       We create a printable document in a
-       new browser window.
-    */
-
-    const printWindow =
-        window.open(
-            "",
-            "_blank"
-        );
+    return String(data)
+        .replace(/\s/g, "");
+}
 
 
-    if (!printWindow) {
+// --------------------------------------------------
+// Wait for images
+// --------------------------------------------------
 
-        throw new Error(
-            "Please allow popups for this website."
-        );
+async function waitForImages(container) {
+
+    const images =
+        [...container.querySelectorAll("img")];
+
+    await Promise.all(
+        images.map(img => {
+
+            if (img.complete) {
+                return Promise.resolve();
+            }
+
+            return new Promise(resolve => {
+
+                img.onload = resolve;
+
+                img.onerror = resolve;
+
+            });
+
+        })
+    );
+
+}
+
+
+// --------------------------------------------------
+// Wait for MathJax
+// --------------------------------------------------
+
+async function waitForMath() {
+
+    if (
+        window.MathJax &&
+        MathJax.startup &&
+        MathJax.startup.promise
+    ) {
+
+        await MathJax.startup.promise;
 
     }
 
-
-    printWindow.document.open();
-
-    printWindow.document.write(html);
-
-    printWindow.document.close();
-
-
-    await new Promise(
-        resolve =>
-            setTimeout(
-                resolve,
-                500
-            )
-    );
-
-
-    printWindow.focus();
-
-    printWindow.print();
-
-
-    return new Blob(
-        [],
-        {
-            type:
-                "application/pdf"
-        }
-    );
 }
 
 
-// Escape HTML
-function escapeHTML(text) {
+// --------------------------------------------------
+// Create actual PDF
+// --------------------------------------------------
 
-    return String(text)
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
+async function createPDF(element) {
+
+    const {
+        jsPDF
+    } = window.jspdf;
+
+
+    const pdf =
+        new jsPDF({
+            orientation: "portrait",
+            unit: "mm",
+            format: "a4",
+            compress: true
+        });
+
+
+    const canvas =
+        await html2canvas(element, {
+
+            scale:
+                Math.min(
+                    2,
+                    window.devicePixelRatio || 1
+                ),
+
+            useCORS: true,
+
+            backgroundColor:
+                "#ffffff",
+
+            logging: false
+
+        });
+
+
+    const imgData =
+        canvas.toDataURL(
+            "image/jpeg",
+            0.95
         );
+
+
+    const pageWidth =
+        210;
+
+    const pageHeight =
+        297;
+
+
+    const margin =
+        10;
+
+
+    const usableWidth =
+        pageWidth - margin * 2;
+
+
+    const imageWidth =
+        usableWidth;
+
+
+    const imageHeight =
+        canvas.height *
+        imageWidth /
+        canvas.width;
+
+
+    let heightLeft =
+        imageHeight;
+
+
+    let position =
+        margin;
+
+
+    pdf.addImage(
+        imgData,
+        "JPEG",
+        margin,
+        position,
+        imageWidth,
+        imageHeight
+    );
+
+
+    heightLeft -=
+        pageHeight -
+        margin * 2;
+
+
+    while (heightLeft > 0) {
+
+        position =
+            margin -
+            (imageHeight - heightLeft);
+
+
+        pdf.addPage();
+
+
+        pdf.addImage(
+            imgData,
+            "JPEG",
+            margin,
+            position,
+            imageWidth,
+            imageHeight
+        );
+
+
+        heightLeft -=
+            pageHeight -
+            margin * 2;
+    }
+
+
+    // Remove temporary DOM
+
+    element.remove();
+
+
+    return pdf;
 }
 
+
+// --------------------------------------------------
+// Error handling
+// --------------------------------------------------
 
 function showError(message) {
 
-    errorBox.textContent = message;
+    errorBox.textContent =
+        message;
 
     errorBox.classList.remove(
         "hidden"
