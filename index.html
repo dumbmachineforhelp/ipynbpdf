@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>IPYNB → PDF</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<main class="container">
+
+    <div class="card">
+
+        <div class="logo">
+            📓
+        </div>
+
+        <h1>IPYNB → PDF</h1>
+
+        <p class="subtitle">
+            Convert your Jupyter Notebook into a PDF
+            directly in your browser.
+        </p>
+
+        <div id="dropZone" class="drop-zone">
+
+            <div class="upload-icon">↑</div>
+
+            <h2>Drop your notebook here</h2>
+
+            <p>or click to browse</p>
+
+            <span>.ipynb files only</span>
+
+            <input
+                type="file"
+                id="notebook"
+                accept=".ipynb"
+                hidden
+            >
+
+        </div>
+
+        <div id="fileInfo" class="file-info hidden">
+
+            <span>📓</span>
+
+            <span id="fileName"></span>
+
+            <button id="removeFile">×</button>
+
+        </div>
+
+        <button
+            id="convertButton"
+            class="convert-button"
+            disabled>
+
+            Convert to PDF
+
+        </button>
+
+        <div id="status" class="status hidden">
+
+            <div class="spinner"></div>
+
+            <span id="statusText">
+                Converting...
+            </span>
+
+        </div>
+
+        <div id="error" class="error hidden"></div>
+
+        <p class="footer">
+            Your notebook stays in your browser.
+        </p>
+
+    </div>
+
+</main>
+
+<script src="script.js"></script>
+
+</body>
+</html>
