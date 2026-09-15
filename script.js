@@ -1,17 +1,13 @@
-"use strict";
-
-
-/* =========================================================
-   ELEMENTS
-   ========================================================= */
+// ============================================================
+// IPYNB → PDF
+// Faster cell-by-cell PDF renderer
+// ============================================================
 
 const fileInput = document.getElementById("fileInput");
 const dropZone = document.getElementById("dropZone");
-
 const fileInfo = document.getElementById("fileInfo");
 const fileName = document.getElementById("fileName");
 const fileSize = document.getElementById("fileSize");
-
 const removeFile = document.getElementById("removeFile");
 const convertButton = document.getElementById("convertButton");
 
@@ -25,335 +21,156 @@ const errorMessage = document.getElementById("errorMessage");
 const pdfRenderContainer =
     document.getElementById("pdfRenderContainer");
 
-
-/* =========================================================
-   STATE
-   ========================================================= */
-
 let selectedFile = null;
 
 
-/* =========================================================
-   INITIALIZATION
-   ========================================================= */
+// ============================================================
+// FILE INPUT
+// ============================================================
 
-document.addEventListener("DOMContentLoaded", () => {
-
-    setupFileInput();
-    setupDragAndDrop();
-
-    removeFile.addEventListener(
-        "click",
-        clearSelectedFile
-    );
-
-    convertButton.addEventListener(
-        "click",
-        convertNotebook
-    );
-
+fileInput.addEventListener("change", function () {
+    if (this.files && this.files.length > 0) {
+        handleFile(this.files[0]);
+    }
 });
 
 
-/* =========================================================
-   FILE INPUT
-   ========================================================= */
+// ============================================================
+// DRAG & DROP
+// ============================================================
 
-function setupFileInput() {
+["dragenter", "dragover"].forEach(eventName => {
+    dropZone.addEventListener(eventName, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.add("drag-over");
+    });
+});
 
-    fileInput.addEventListener(
-        "change",
-        event => {
+["dragleave", "drop"].forEach(eventName => {
+    dropZone.addEventListener(eventName, event => {
+        event.preventDefault();
+        event.stopPropagation();
+        dropZone.classList.remove("drag-over");
+    });
+});
 
-            const file =
-                event.target.files &&
-                event.target.files[0];
+dropZone.addEventListener("drop", event => {
+    const files = event.dataTransfer.files;
 
-            if (!file) {
-                return;
-            }
-
-            selectFile(file);
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   DRAG AND DROP
-   ========================================================= */
-
-function setupDragAndDrop() {
-
-    dropZone.addEventListener(
-        "dragenter",
-        preventDrag
-    );
-
-    dropZone.addEventListener(
-        "dragover",
-        preventDrag
-    );
-
-    dropZone.addEventListener(
-        "dragleave",
-        event => {
-
-            event.preventDefault();
-
-            dropZone.classList.remove(
-                "dragover"
-            );
-
-        }
-    );
-
-    dropZone.addEventListener(
-        "drop",
-        event => {
-
-            event.preventDefault();
-            event.stopPropagation();
-
-            dropZone.classList.remove(
-                "dragover"
-            );
-
-            const files =
-                event.dataTransfer.files;
-
-            if (
-                files &&
-                files.length > 0
-            ) {
-
-                selectFile(files[0]);
-
-            }
-
-        }
-    );
-
-}
+    if (files && files.length > 0) {
+        handleFile(files[0]);
+    }
+});
 
 
-function preventDrag(event) {
+// ============================================================
+// REMOVE FILE
+// ============================================================
 
-    event.preventDefault();
-    event.stopPropagation();
+removeFile.addEventListener("click", () => {
+    selectedFile = null;
+    fileInput.value = "";
 
-    dropZone.classList.add(
-        "dragover"
-    );
+    fileInfo.classList.add("hidden");
+    convertButton.disabled = true;
 
-}
-
-
-/* =========================================================
-   SELECT FILE
-   ========================================================= */
-
-function selectFile(file) {
-
-    clearError();
+    hideError();
+    hideStatus();
+});
 
 
-    if (
-        !file.name
-            .toLowerCase()
-            .endsWith(".ipynb")
-    ) {
+// ============================================================
+// FILE HANDLING
+// ============================================================
 
-        showError(
-            "Please select a Jupyter Notebook (.ipynb) file."
-        );
+function handleFile(file) {
+    hideError();
 
-        fileInput.value = "";
-
+    if (!file.name.toLowerCase().endsWith(".ipynb")) {
+        showError("Please select a valid .ipynb file.");
         return;
     }
-
-
-    if (
-        file.size >
-        50 * 1024 * 1024
-    ) {
-
-        showError(
-            "This notebook is larger than 50 MB. " +
-            "Large notebooks may require too much browser memory."
-        );
-
-        fileInput.value = "";
-
-        return;
-    }
-
 
     selectedFile = file;
 
+    fileName.textContent = file.name;
+    fileSize.textContent = formatFileSize(file.size);
 
-    fileName.textContent =
-        file.name;
-
-    fileSize.textContent =
-        formatFileSize(file.size);
-
-
-    fileInfo.classList.remove(
-        "hidden"
-    );
-
-    convertButton.disabled =
-        false;
-
+    fileInfo.classList.remove("hidden");
+    convertButton.disabled = false;
 }
 
 
-/* =========================================================
-   CLEAR FILE
-   ========================================================= */
+// ============================================================
+// CONVERT BUTTON
+// ============================================================
 
-function clearSelectedFile() {
-
-    selectedFile = null;
-
-    fileInput.value = "";
-
-    fileInfo.classList.add(
-        "hidden"
-    );
-
-    convertButton.disabled =
-        true;
-
-    clearError();
-
-}
+convertButton.addEventListener("click", convertNotebook);
 
 
-/* =========================================================
-   CONVERT
-   ========================================================= */
+// ============================================================
+// MAIN CONVERSION
+// ============================================================
 
 async function convertNotebook() {
-
     if (!selectedFile) {
-
-        showError(
-            "Please select an .ipynb file first."
-        );
-
         return;
     }
 
-
-    convertButton.disabled = true;
-
-    clearError();
-
+    hideError();
 
     try {
+        convertButton.disabled = true;
 
         showStatus(
-            "Preparing...",
-            "Checking libraries"
+            "Preparing notebook...",
+            "Reading your .ipynb file"
         );
 
-        verifyLibraries();
+        checkLibraries();
 
+        const text = await selectedFile.text();
 
-        /*
-            Read notebook.
-        */
+        let notebook;
 
-        showStatus(
-            "Reading notebook...",
-            "Loading your .ipynb file"
-        );
-
-        const notebook =
-            await readNotebook(
-                selectedFile
+        try {
+            notebook = JSON.parse(text);
+        } catch (error) {
+            throw new Error(
+                "The selected file is not valid Jupyter Notebook JSON."
             );
+        }
 
-
-        /*
-            Build HTML.
-        */
-
-        showStatus(
-            "Preparing...",
-            "Building notebook"
-        );
-
-        const html =
-            notebookToHTML(
-                notebook
+        if (
+            !notebook ||
+            !Array.isArray(notebook.cells)
+        ) {
+            throw new Error(
+                "This file does not contain a valid notebook cell list."
             );
-
-
-        pdfRenderContainer.innerHTML =
-            html;
-
-
-        /*
-            Let browser perform layout.
-        */
-
-        await waitForPaint();
-
-
-        /*
-            Images.
-        */
+        }
 
         showStatus(
-            "Preparing...",
-            "Loading notebook images"
+            "Rendering notebook...",
+            `${notebook.cells.length} cells found`
         );
 
-        await waitForImages(
-            pdfRenderContainer
-        );
+        await renderNotebook(notebook);
 
-
-        /*
-            Math.
-        */
+        await waitForMath();
 
         showStatus(
-            "Preparing...",
-            "Rendering formulas"
+            "Creating PDF...",
+            "Building the document"
         );
 
-        await renderMath();
-
-
-        await waitForPaint();
-
-        await sleep(200);
-
-
-        /*
-            PDF.
-        */
-
-        const pdf =
-            await buildPDF();
-
-
-        /*
-            Download.
-        */
+        const pdf = await buildPDF();
 
         showStatus(
-            "Downloading...",
-            "Preparing your PDF"
+            "Finishing...",
+            "Preparing your download"
         );
-
 
         const outputName =
             selectedFile.name.replace(
@@ -361,564 +178,417 @@ async function convertNotebook() {
                 ""
             ) + ".pdf";
 
-
-        pdf.save(
-            outputName
-        );
-
+        pdf.save(outputName);
 
         showStatus(
             "Done!",
-            "Your PDF has been downloaded"
+            `${outputName} has been downloaded`
         );
 
-
-        await sleep(1200);
+        await sleep(1500);
 
         hideStatus();
-
 
     } catch (error) {
+        console.error(error);
 
-        console.error(
-            "IPYNB → PDF error:",
-            error
+        showError(
+            error && error.message
+                ? error.message
+                : "An unexpected error occurred while creating the PDF."
         );
 
         hideStatus();
 
-        showError(
-            error &&
-            error.message
-                ? error.message
-                : "Could not create the PDF."
-        );
-
     } finally {
-
-        convertButton.disabled =
-            !selectedFile;
-
-        pdfRenderContainer.innerHTML =
-            "";
-
+        convertButton.disabled = false;
     }
-
 }
 
 
-/* =========================================================
-   VERIFY LIBRARIES
-   ========================================================= */
+// ============================================================
+// LIBRARY CHECK
+// ============================================================
 
-function verifyLibraries() {
-
-    if (
-        !window.marked ||
-        typeof window.marked.parse !==
-            "function"
-    ) {
-
+function checkLibraries() {
+    if (!window.marked) {
         throw new Error(
-            "Markdown library failed to load. Please refresh the page."
+            "Markdown renderer failed to load."
         );
-
     }
-
 
     if (!window.DOMPurify) {
-
         throw new Error(
-            "DOMPurify failed to load. Please refresh the page."
+            "HTML sanitizer failed to load."
         );
-
     }
-
 
     if (!window.html2canvas) {
-
         throw new Error(
-            "html2canvas failed to load. Please refresh the page."
+            "HTML renderer failed to load."
         );
-
     }
 
-
-    if (
-        !window.jspdf ||
-        !window.jspdf.jsPDF
-    ) {
-
+    if (!window.jspdf) {
         throw new Error(
-            "jsPDF failed to load. Please refresh the page."
+            "PDF library failed to load."
+        );
+    }
+}
+
+
+// ============================================================
+// RENDER NOTEBOOK
+// ============================================================
+
+async function renderNotebook(notebook) {
+    pdfRenderContainer.innerHTML = "";
+
+    const documentElement =
+        document.createElement("div");
+
+    documentElement.className =
+        "notebook-document";
+
+    pdfRenderContainer.appendChild(documentElement);
+
+    for (let i = 0; i < notebook.cells.length; i++) {
+        const cell = notebook.cells[i];
+
+        showStatus(
+            "Rendering notebook...",
+            `Cell ${i + 1} of ${notebook.cells.length}`
         );
 
-    }
+        const cellElement =
+            notebookCellToHTML(cell, i);
 
-}
+        documentElement.appendChild(cellElement);
 
+        // Give the browser a chance to paint.
+        await nextFrame();
 
-/* =========================================================
-   READ NOTEBOOK
-   ========================================================= */
-
-function readNotebook(file) {
-
-    return new Promise(
-        (resolve, reject) => {
-
-            const reader =
-                new FileReader();
-
-
-            reader.onload = () => {
-
-                try {
-
-                    const notebook =
-                        JSON.parse(
-                            reader.result
-                        );
-
-
-                    if (
-                        !notebook ||
-                        !Array.isArray(
-                            notebook.cells
-                        )
-                    ) {
-
-                        throw new Error();
-
-                    }
-
-
-                    resolve(notebook);
-
-                } catch {
-
-                    reject(
-                        new Error(
-                            "Could not read the notebook. " +
-                            "The .ipynb file may be invalid."
-                        )
-                    );
-
-                }
-
-            };
-
-
-            reader.onerror = () => {
-
-                reject(
-                    new Error(
-                        "The browser could not read the selected file."
-                    )
+        // Render MathJax for this cell if necessary.
+        if (
+            window.MathJax &&
+            typeof window.MathJax.typesetPromise === "function"
+        ) {
+            try {
+                await window.MathJax.typesetPromise(
+                    [cellElement]
                 );
-
-            };
-
-
-            reader.readAsText(file);
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   NOTEBOOK → HTML
-   ========================================================= */
-
-function notebookToHTML(notebook) {
-
-    let html = `
-        <article class="notebook-document">
-    `;
-
-
-    /*
-        Title
-    */
-
-    html += `
-        <h1 class="notebook-title">
-            ${escapeHTML(
-                selectedFile
-                    ? selectedFile.name.replace(
-                        /\.ipynb$/i,
-                        ""
-                    )
-                    : "Jupyter Notebook"
-            )}
-        </h1>
-    `;
-
-
-    /*
-        Cells
-    */
-
-    notebook.cells.forEach(
-        (cell, index) => {
-
-            const type =
-                cell.cell_type || "";
-
-
-            const source =
-                Array.isArray(
-                    cell.source
-                )
-                    ? cell.source.join("")
-                    : String(
-                        cell.source || ""
-                    );
-
-
-            /*
-                Markdown
-            */
-
-            if (
-                type === "markdown"
-            ) {
-
-                html += `
-                    <section class="notebook-cell markdown-cell">
-                        ${renderMarkdown(source)}
-                    </section>
-                `;
-
-                return;
-            }
-
-
-            /*
-                Code
-            */
-
-            if (
-                type === "code"
-            ) {
-
-                const execution =
-                    cell.execution_count ??
-                    index + 1;
-
-
-                html += `
-                    <section class="notebook-cell code-cell">
-
-                        <div class="code-label">
-                            In [${escapeHTML(
-                                execution
-                            )}]
-                        </div>
-
-                        <pre class="code-block">${escapeHTML(
-                            source
-                        )}</pre>
-
-                        ${renderOutputs(
-                            cell.outputs || []
-                        )}
-
-                    </section>
-                `;
-
-                return;
-            }
-
-
-            /*
-                Raw
-            */
-
-            if (
-                type === "raw"
-            ) {
-
-                html += `
-                    <section class="notebook-cell markdown-cell">
-
-                        <pre class="code-block">${escapeHTML(
-                            source
-                        )}</pre>
-
-                    </section>
-                `;
-
-            }
-
-        }
-    );
-
-
-    html += `
-        </article>
-    `;
-
-
-    return html;
-
-}
-
-
-/* =========================================================
-   MARKDOWN
-   ========================================================= */
-
-function renderMarkdown(markdown) {
-
-    const parsed =
-        window.marked.parse(
-            markdown || ""
-        );
-
-
-    return window.DOMPurify.sanitize(
-        parsed
-    );
-
-}
-
-
-/* =========================================================
-   OUTPUTS
-   ========================================================= */
-
-function renderOutputs(outputs) {
-
-    if (
-        !Array.isArray(outputs)
-    ) {
-
-        return "";
-
-    }
-
-
-    return outputs
-        .map(renderOutput)
-        .join("");
-
-}
-
-
-/* =========================================================
-   SINGLE OUTPUT
-   ========================================================= */
-
-function renderOutput(output) {
-
-    if (!output) {
-        return "";
-    }
-
-
-    const type =
-        output.output_type || "";
-
-
-    /*
-        Stream
-    */
-
-    if (
-        type === "stream"
-    ) {
-
-        const text =
-            Array.isArray(
-                output.text
-            )
-                ? output.text.join("")
-                : String(
-                    output.text || ""
+            } catch (error) {
+                console.warn(
+                    "MathJax rendering warning:",
+                    error
                 );
+            }
+        }
 
-
-        return `
-            <div class="output-cell">
-
-                <div class="output-label">
-                    Output
-                </div>
-
-                <div class="output-text">${escapeHTML(
-                    text
-                )}</div>
-
-            </div>
-        `;
-
+        await waitForImages(cellElement);
     }
 
-
-    /*
-        Error
-    */
-
-    if (
-        type === "error"
-    ) {
-
-        const traceback =
-            Array.isArray(
-                output.traceback
-            )
-                ? output.traceback.join("\n")
-                : "";
+    await nextFrame();
+}
 
 
-        const message =
-            traceback ||
-            (
-                String(
-                    output.ename || ""
-                )
-                +
-                "\n" +
-                String(
-                    output.evalue || ""
-                )
+// ============================================================
+// NOTEBOOK CELL → HTML
+// ============================================================
+
+function notebookCellToHTML(cell, index) {
+    const wrapper =
+        document.createElement("section");
+
+    wrapper.className =
+        "notebook-cell";
+
+    wrapper.dataset.cellIndex = index;
+
+    const cellType = cell.cell_type;
+
+    if (cellType === "markdown") {
+        wrapper.innerHTML =
+            renderMarkdown(
+                sourceToString(cell.source)
             );
 
-
-        return `
-            <div class="output-cell">
-
-                <div class="output-label">
-                    Error
-                </div>
-
-                <div class="output-error">${escapeHTML(
-                    message
-                )}</div>
-
-            </div>
-        `;
-
+        return wrapper;
     }
 
+    if (cellType === "raw") {
+        const raw =
+            document.createElement("pre");
 
-    /*
-        Display data / execute result
-    */
+        raw.className = "raw-cell";
 
-    if (
-        type === "display_data" ||
-        type === "execute_result"
-    ) {
+        raw.textContent =
+            sourceToString(cell.source);
 
-        return renderMimeData(
-            output.data || {}
-        );
+        wrapper.appendChild(raw);
 
+        return wrapper;
     }
 
+    if (cellType === "code") {
+        renderCodeCell(wrapper, cell);
+        return wrapper;
+    }
 
-    return "";
+    wrapper.textContent =
+        sourceToString(cell.source);
 
+    return wrapper;
 }
 
 
-/* =========================================================
-   MIME DATA
-   ========================================================= */
+// ============================================================
+// MARKDOWN
+// ============================================================
 
-function renderMimeData(data) {
+function renderMarkdown(markdown) {
+    const rawHTML =
+        window.marked.parse(markdown || "");
 
-    /*
-        PNG
-    */
+    return window.DOMPurify.sanitize(
+        rawHTML,
+        {
+            USE_PROFILES: {
+                html: true
+            }
+        }
+    );
+}
+
+
+// ============================================================
+// CODE CELL
+// ============================================================
+
+function renderCodeCell(wrapper, cell) {
+    const input =
+        document.createElement("div");
+
+    input.className =
+        "code-input";
+
+    const prompt =
+        document.createElement("div");
+
+    prompt.className =
+        "cell-prompt";
+
+    prompt.textContent =
+        cell.execution_count != null
+            ? `In [${cell.execution_count}]:`
+            : "In [ ]:";
+
+    const code =
+        document.createElement("pre");
+
+    const codeElement =
+        document.createElement("code");
+
+    codeElement.textContent =
+        sourceToString(cell.source);
+
+    code.appendChild(codeElement);
+
+    input.appendChild(prompt);
+    input.appendChild(code);
+
+    wrapper.appendChild(input);
+
+
+    // Outputs
+    if (
+        Array.isArray(cell.outputs)
+    ) {
+        for (const output of cell.outputs) {
+            const outputElement =
+                renderOutput(output);
+
+            if (outputElement) {
+                wrapper.appendChild(
+                    outputElement
+                );
+            }
+        }
+    }
+}
+
+
+// ============================================================
+// OUTPUT RENDERING
+// ============================================================
+
+function renderOutput(output) {
+    if (!output) {
+        return null;
+    }
+
+    const wrapper =
+        document.createElement("div");
+
+    wrapper.className =
+        "cell-output";
+
+
+    // ------------------------------
+    // Stream output
+    // ------------------------------
 
     if (
-        data["image/png"]
+        output.output_type === "stream"
     ) {
+        const pre =
+            document.createElement("pre");
 
-        const image =
-            Array.isArray(
+        pre.className =
+            "stream-output";
+
+        pre.textContent =
+            sourceToString(output.text);
+
+        wrapper.appendChild(pre);
+
+        return wrapper;
+    }
+
+
+    // ------------------------------
+    // Error output
+    // ------------------------------
+
+    if (
+        output.output_type === "error"
+    ) {
+        const pre =
+            document.createElement("pre");
+
+        pre.className =
+            "error-output";
+
+        pre.textContent =
+            Array.isArray(output.traceback)
+                ? output.traceback.join("\n")
+                : [
+                    output.ename || "Error",
+                    output.evalue || ""
+                ].join(": ");
+
+        wrapper.appendChild(pre);
+
+        return wrapper;
+    }
+
+
+    // ------------------------------
+    // display_data / execute_result
+    // ------------------------------
+
+    if (
+        output.output_type === "display_data" ||
+        output.output_type === "execute_result"
+    ) {
+        return renderMimeBundle(
+            output.data || {},
+            wrapper
+        );
+    }
+
+
+    return null;
+}
+
+
+// ============================================================
+// MIME DATA
+// ============================================================
+
+function renderMimeBundle(data, wrapper) {
+
+    // Prefer HTML
+    if (data["text/html"]) {
+        const html =
+            sourceToString(data["text/html"]);
+
+        const sanitized =
+            window.DOMPurify.sanitize(
+                html
+            );
+
+        const htmlContainer =
+            document.createElement("div");
+
+        htmlContainer.className =
+            "output-html";
+
+        htmlContainer.innerHTML =
+            sanitized;
+
+        wrapper.appendChild(
+            htmlContainer
+        );
+
+        return wrapper;
+    }
+
+
+    // PNG
+    if (data["image/png"]) {
+        const img =
+            document.createElement("img");
+
+        img.className =
+            "output-image";
+
+        img.src =
+            "data:image/png;base64," +
+            sourceToString(
                 data["image/png"]
-            )
-                ? data["image/png"].join("")
-                : data["image/png"];
+            );
 
+        wrapper.appendChild(img);
 
-        return `
-            <div class="output-cell">
-
-                <div class="output-label">
-                    Output
-                </div>
-
-                <img
-                    class="output-image"
-                    src="data:image/png;base64,${image}"
-                    alt="Notebook output"
-                >
-
-            </div>
-        `;
-
+        return wrapper;
     }
 
 
-    /*
-        JPEG
-    */
+    // JPEG
+    if (data["image/jpeg"]) {
+        const img =
+            document.createElement("img");
 
-    if (
-        data["image/jpeg"]
-    ) {
+        img.className =
+            "output-image";
 
-        const image =
-            Array.isArray(
+        img.src =
+            "data:image/jpeg;base64," +
+            sourceToString(
                 data["image/jpeg"]
-            )
-                ? data["image/jpeg"].join("")
-                : data["image/jpeg"];
+            );
 
+        wrapper.appendChild(img);
 
-        return `
-            <div class="output-cell">
-
-                <div class="output-label">
-                    Output
-                </div>
-
-                <img
-                    class="output-image"
-                    src="data:image/jpeg;base64,${image}"
-                    alt="Notebook output"
-                >
-
-            </div>
-        `;
-
+        return wrapper;
     }
 
 
-    /*
-        SVG
-    */
-
-    if (
-        data["image/svg+xml"]
-    ) {
-
+    // SVG
+    if (data["image/svg+xml"]) {
         const svg =
-            Array.isArray(
+            sourceToString(
                 data["image/svg+xml"]
-            )
-                ? data["image/svg+xml"].join("")
-                : data["image/svg+xml"];
+            );
 
+        const container =
+            document.createElement("div");
 
-        const safeSVG =
+        container.className =
+            "output-svg";
+
+        container.innerHTML =
             window.DOMPurify.sanitize(
                 svg,
                 {
@@ -928,111 +598,41 @@ function renderMimeData(data) {
                 }
             );
 
+        wrapper.appendChild(container);
 
-        return `
-            <div class="output-cell">
-
-                <div class="output-label">
-                    Output
-                </div>
-
-                <div class="output-html">
-                    ${safeSVG}
-                </div>
-
-            </div>
-        `;
-
+        return wrapper;
     }
 
 
-    /*
-        HTML
-    */
+    // Plain text
+    if (data["text/plain"]) {
+        const pre =
+            document.createElement("pre");
 
-    if (
-        data["text/html"]
-    ) {
+        pre.className =
+            "plain-output";
 
-        const html =
-            Array.isArray(
-                data["text/html"]
-            )
-                ? data["text/html"].join("")
-                : data["text/html"];
-
-
-        const safeHTML =
-            window.DOMPurify.sanitize(
-                html
+        pre.textContent =
+            sourceToString(
+                data["text/plain"]
             );
 
+        wrapper.appendChild(pre);
 
-        return `
-            <div class="output-cell">
-
-                <div class="output-label">
-                    Output
-                </div>
-
-                <div class="output-html">
-                    ${safeHTML}
-                </div>
-
-            </div>
-        `;
-
+        return wrapper;
     }
 
 
-    /*
-        Plain text
-    */
-
-    if (
-        data["text/plain"]
-    ) {
-
-        const text =
-            Array.isArray(
-                data["text/plain"]
-            )
-                ? data["text/plain"].join("")
-                : data["text/plain"];
-
-
-        return `
-            <div class="output-cell">
-
-                <div class="output-label">
-                    Output
-                </div>
-
-                <div class="output-text">${escapeHTML(
-                    text
-                )}</div>
-
-            </div>
-        `;
-
-    }
-
-
-    return "";
-
+    return null;
 }
 
 
-/* =========================================================
-   BUILD PDF
-   ========================================================= */
+// ============================================================
+// BUILD PDF
+// ============================================================
 
 async function buildPDF() {
-
-    const {
-        jsPDF
-    } = window.jspdf;
-
+    const { jsPDF } = window.jspdf;
 
     const PAGE_WIDTH = 210;
     const PAGE_HEIGHT = 297;
@@ -1040,23 +640,19 @@ async function buildPDF() {
     const MARGIN = 10;
 
     const CONTENT_WIDTH =
-        PAGE_WIDTH -
-        MARGIN * 2;
+        PAGE_WIDTH - MARGIN * 2;
 
     const CONTENT_HEIGHT =
-        PAGE_HEIGHT -
-        MARGIN * 2;
+        PAGE_HEIGHT - MARGIN * 2;
 
 
-    /*
-        Moderate resolution.
-
-        Lower memory usage than the previous version.
-    */
-
-    const SCALE = 1.25;
-
+    // Width used for HTML rendering.
+    // 794px ≈ A4 at 96 DPI.
     const RENDER_WIDTH = 794;
+
+    // Moderate scale gives good quality
+    // without creating gigantic canvases.
+    const SCALE = 1.35;
 
 
     const documentElement =
@@ -1064,35 +660,22 @@ async function buildPDF() {
             ".notebook-document"
         );
 
-
     if (!documentElement) {
-
         throw new Error(
             "Notebook rendering failed."
         );
-
     }
 
 
-    documentElement.style.width =
-        `${RENDER_WIDTH}px`;
-
-
-    const totalHeight =
-        Math.ceil(
-            documentElement.getBoundingClientRect()
-                .height
+    const cells =
+        Array.from(
+            documentElement.children
         );
 
-
-    if (
-        totalHeight <= 0
-    ) {
-
+    if (cells.length === 0) {
         throw new Error(
             "The notebook appears to be empty."
         );
-
     }
 
 
@@ -1105,102 +688,65 @@ async function buildPDF() {
         });
 
 
-    /*
-        Pixels → PDF millimeters
-    */
+    let pageNumber = 0;
 
+    let currentY = MARGIN;
+
+
+    // Convert rendered pixels to PDF mm.
     const pixelsPerMm =
-        (
-            RENDER_WIDTH *
-            SCALE
-        ) /
+        (RENDER_WIDTH * SCALE) /
         CONTENT_WIDTH;
 
 
-    /*
-        Keep each capture small.
-    */
-
-    const CAPTURE_HEIGHT = 900;
-
-
-    let currentY = 0;
-
-    let pageNumber = 0;
-
-
-    while (
-        currentY < totalHeight
+    for (
+        let i = 0;
+        i < cells.length;
+        i++
     ) {
-
-        const remaining =
-            totalHeight -
-            currentY;
-
-
-        const chunkHeight =
-            Math.min(
-                CAPTURE_HEIGHT,
-                remaining
-            );
+        const cell =
+            cells[i];
 
 
         showStatus(
             "Creating PDF...",
-            `Rendering section ${pageNumber + 1}`
+            `Processing cell ${i + 1} of ${cells.length}`
         );
 
 
-        /*
-            Small temporary wrapper.
-        */
+        // Make sure cell is visible to html2canvas
+        // but remains completely outside the UI.
+        const renderWrapper =
+            document.createElement("div");
 
-        const wrapper =
-            document.createElement(
-                "div"
-            );
-
-
-        wrapper.style.position =
+        renderWrapper.style.position =
             "fixed";
 
-        wrapper.style.left =
+        renderWrapper.style.left =
             "-100000px";
 
-        wrapper.style.top =
+        renderWrapper.style.top =
             "0";
 
-        wrapper.style.width =
+        renderWrapper.style.width =
             `${RENDER_WIDTH}px`;
 
-        wrapper.style.height =
-            `${chunkHeight}px`;
-
-        wrapper.style.overflow =
-            "hidden";
-
-        wrapper.style.background =
+        renderWrapper.style.background =
             "#ffffff";
 
-
-        /*
-            Clone notebook.
-        */
-
-        const clone =
-            documentElement.cloneNode(
-                true
-            );
-
-
-        clone.style.position =
-            "absolute";
-
-        clone.style.left =
+        renderWrapper.style.padding =
             "0";
 
-        clone.style.top =
-            `${-currentY}px`;
+        renderWrapper.style.margin =
+            "0";
+
+        renderWrapper.style.overflow =
+            "visible";
+
+
+        // Clone ONLY this cell.
+        const clone =
+            cell.cloneNode(true);
 
         clone.style.width =
             `${RENDER_WIDTH}px`;
@@ -1208,24 +754,18 @@ async function buildPDF() {
         clone.style.margin =
             "0";
 
+        clone.style.boxSizing =
+            "border-box";
 
-        wrapper.appendChild(
+
+        renderWrapper.appendChild(
             clone
         );
 
-
         document.body.appendChild(
-            wrapper
+            renderWrapper
         );
 
-
-        /*
-            IMPORTANT:
-
-            html2canvas needs the element to be
-            paintable. The wrapper itself is off-screen,
-            but NOT display:none.
-        */
 
         await nextFrame();
 
@@ -1234,34 +774,20 @@ async function buildPDF() {
 
 
         try {
-
             canvas =
                 await html2canvas(
-                    wrapper,
+                    renderWrapper,
                     {
                         backgroundColor:
                             "#ffffff",
 
-                        scale:
-                            SCALE,
+                        scale: SCALE,
 
                         width:
                             RENDER_WIDTH,
 
-                        height:
-                            chunkHeight,
-
                         windowWidth:
                             RENDER_WIDTH,
-
-                        windowHeight:
-                            chunkHeight,
-
-                        scrollX:
-                            0,
-
-                        scrollY:
-                            0,
 
                         useCORS:
                             true,
@@ -1273,420 +799,439 @@ async function buildPDF() {
                             false,
 
                         imageTimeout:
-                            10000
+                            10000,
+
+                        foreignObjectRendering:
+                            false
                     }
                 );
 
-
         } finally {
-
-            wrapper.remove();
-
+            renderWrapper.remove();
         }
 
 
-        if (!canvas) {
-
-            throw new Error(
-                "Chrome could not render a PDF section."
-            );
-
+        if (
+            !canvas ||
+            canvas.width <= 0 ||
+            canvas.height <= 0
+        ) {
+            continue;
         }
 
 
-        /*
-            Convert canvas to image.
-        */
-
-        const imageData =
-            canvas.toDataURL(
-                "image/jpeg",
-                0.88
-            );
-
-
-        /*
-            Calculate image height.
-        */
-
-        const imageHeight =
+        // Height of this cell in PDF millimeters.
+        const cellHeight =
             canvas.height /
             pixelsPerMm;
 
 
-        /*
-            New PDF page.
-        */
+        // ----------------------------------------------------
+        // If the cell doesn't fit, start a new page.
+        // ----------------------------------------------------
 
         if (
-            pageNumber > 0
+            currentY > MARGIN &&
+            currentY + cellHeight >
+            PAGE_HEIGHT - MARGIN
         ) {
-
             pdf.addPage();
 
+            pageNumber++;
+
+            currentY = MARGIN;
         }
 
 
-        pdf.addImage(
-            imageData,
-            "JPEG",
-            MARGIN,
-            MARGIN,
-            CONTENT_WIDTH,
-            Math.min(
-                imageHeight,
-                CONTENT_HEIGHT
-            ),
-            undefined,
-            "FAST"
-        );
+        // ----------------------------------------------------
+        // If a single cell is taller than a page,
+        // split its canvas vertically.
+        // ----------------------------------------------------
+
+        if (
+            cellHeight >
+            CONTENT_HEIGHT
+        ) {
+            await addTallCanvas(
+                pdf,
+                canvas,
+                {
+                    margin: MARGIN,
+                    pageWidth: CONTENT_WIDTH,
+                    pageHeight: CONTENT_HEIGHT,
+                    pixelsPerMm
+                }
+            );
+
+            pageNumber++;
+
+            currentY =
+                MARGIN;
+
+        } else {
+
+            // PNG keeps text/code sharper than JPEG.
+            const imageData =
+                canvas.toDataURL(
+                    "image/png"
+                );
 
 
-        pageNumber++;
+            if (
+                pageNumber === 0 &&
+                currentY === MARGIN
+            ) {
+                // First page already exists.
+            }
 
 
-        /*
-            Move through notebook.
-        */
+            pdf.addImage(
+                imageData,
+                "PNG",
+                MARGIN,
+                currentY,
+                CONTENT_WIDTH,
+                cellHeight,
+                undefined,
+                "FAST"
+            );
 
-        currentY +=
-            chunkHeight;
+
+            currentY +=
+                cellHeight;
 
 
-        /*
-            Release canvas.
-        */
+            // Small gap between cells.
+            currentY += 3;
+        }
 
+
+        // Release canvas memory.
         canvas.width = 1;
         canvas.height = 1;
 
         canvas = null;
 
 
-        /*
-            Let browser clean memory.
-        */
-
+        // Let Chrome release memory.
         await nextFrame();
 
-        await sleep(30);
+        if (i % 3 === 0) {
+            await sleep(20);
+        }
+    }
 
+
+    // Remove an empty trailing page situation.
+    if (
+        pdf.getNumberOfPages() > 1 &&
+        currentY === MARGIN
+    ) {
+        pdf.deletePage(
+            pdf.getNumberOfPages()
+        );
     }
 
 
     return pdf;
-
 }
 
 
-/* =========================================================
-   WAIT FOR IMAGES
-   ========================================================= */
+// ============================================================
+// HANDLE VERY TALL CELLS
+// ============================================================
+
+async function addTallCanvas(
+    pdf,
+    canvas,
+    options
+) {
+    const {
+        margin,
+        pageWidth,
+        pageHeight,
+        pixelsPerMm
+    } = options;
+
+
+    const pagePixelHeight =
+        Math.floor(
+            pageHeight *
+            pixelsPerMm
+        );
+
+
+    let sourceY = 0;
+
+    let firstPart = true;
+
+
+    while (
+        sourceY < canvas.height
+    ) {
+        const sliceHeight =
+            Math.min(
+                pagePixelHeight,
+                canvas.height - sourceY
+            );
+
+
+        const slice =
+            document.createElement(
+                "canvas"
+            );
+
+        slice.width =
+            canvas.width;
+
+        slice.height =
+            sliceHeight;
+
+
+        const context =
+            slice.getContext(
+                "2d"
+            );
+
+
+        context.drawImage(
+            canvas,
+
+            0,
+            sourceY,
+
+            canvas.width,
+            sliceHeight,
+
+            0,
+            0,
+
+            canvas.width,
+            sliceHeight
+        );
+
+
+        if (!firstPart) {
+            pdf.addPage();
+        }
+
+        firstPart = false;
+
+
+        const imageData =
+            slice.toDataURL(
+                "image/png"
+            );
+
+
+        const imageHeight =
+            slice.height /
+            pixelsPerMm;
+
+
+        pdf.addImage(
+            imageData,
+            "PNG",
+            margin,
+            margin,
+            pageWidth,
+            imageHeight,
+            undefined,
+            "FAST"
+        );
+
+
+        slice.width = 1;
+        slice.height = 1;
+
+
+        sourceY +=
+            sliceHeight;
+
+
+        await nextFrame();
+    }
+}
+
+
+// ============================================================
+// WAIT FOR IMAGES
+// ============================================================
 
 async function waitForImages(
-    container
+    element
 ) {
-
     const images =
         Array.from(
-            container.querySelectorAll(
+            element.querySelectorAll(
                 "img"
             )
         );
 
 
-    if (
-        images.length === 0
-    ) {
-
+    if (images.length === 0) {
         return;
-
     }
 
 
     await Promise.all(
         images.map(
-            image => {
+            img =>
+                new Promise(resolve => {
 
-                if (
-                    image.complete
-                ) {
-
-                    return Promise.resolve();
-
-                }
-
-
-                return new Promise(
-                    resolve => {
-
-                        image.addEventListener(
-                            "load",
-                            resolve,
-                            {
-                                once: true
-                            }
-                        );
-
-                        image.addEventListener(
-                            "error",
-                            resolve,
-                            {
-                                once: true
-                            }
-                        );
-
+                    if (img.complete) {
+                        resolve();
+                        return;
                     }
-                );
 
-            }
+                    img.onload =
+                        resolve;
+
+                    img.onerror =
+                        resolve;
+                })
         )
     );
-
 }
 
 
-/* =========================================================
-   MATHJAX
-   ========================================================= */
+// ============================================================
+// WAIT FOR MATHJAX
+// ============================================================
 
-async function renderMath() {
+async function waitForMath() {
+    if (
+        !window.MathJax
+    ) {
+        return;
+    }
 
     if (
-        window.MathJax &&
         typeof window.MathJax.typesetPromise ===
-            "function"
+        "function"
     ) {
-
         try {
-
-            await window.MathJax.typesetPromise(
-                [pdfRenderContainer]
-            );
-
+            await window.MathJax.typesetPromise();
         } catch (error) {
-
             console.warn(
                 "MathJax warning:",
                 error
             );
-
         }
-
     }
 
+    await nextFrame();
 }
 
 
-/* =========================================================
-   WAIT FOR PAINT
-   ========================================================= */
-
-function waitForPaint() {
-
-    return new Promise(
-        resolve => {
-
-            requestAnimationFrame(
-                () => {
-
-                    requestAnimationFrame(
-                        () => {
-
-                            resolve();
-
-                        }
-                    );
-
-                }
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   NEXT FRAME
-   ========================================================= */
+// ============================================================
+// PAINT / FRAME HELPERS
+// ============================================================
 
 function nextFrame() {
-
-    return new Promise(
-        resolve => {
-
-            requestAnimationFrame(
-                () => {
-
-                    resolve();
-
-                }
-            );
-
-        }
-    );
-
+    return new Promise(resolve => {
+        requestAnimationFrame(() => {
+            resolve();
+        });
+    });
 }
 
 
-/* =========================================================
-   STATUS
-   ========================================================= */
+function sleep(ms) {
+    return new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                ms
+            )
+    );
+}
+
+
+// ============================================================
+// STATUS
+// ============================================================
 
 function showStatus(
     title,
     text
 ) {
+    status.classList.remove(
+        "hidden"
+    );
 
     statusTitle.textContent =
         title;
 
     statusText.textContent =
         text;
-
-    status.classList.remove(
-        "hidden"
-    );
-
 }
 
 
 function hideStatus() {
-
     status.classList.add(
         "hidden"
     );
-
 }
 
 
-/* =========================================================
-   ERROR
-   ========================================================= */
+// ============================================================
+// ERRORS
+// ============================================================
 
-function showError(
-    message
-) {
-
+function showError(message) {
     errorMessage.textContent =
         message;
 
     errorBox.classList.remove(
         "hidden"
     );
-
 }
 
 
-function clearError() {
-
+function hideError() {
     errorBox.classList.add(
         "hidden"
     );
 
     errorMessage.textContent =
         "";
-
 }
 
 
-/* =========================================================
-   HELPERS
-   ========================================================= */
+// ============================================================
+// UTILITIES
+// ============================================================
 
-function escapeHTML(value) {
-
-    return String(
-        value ?? ""
-    )
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-
-}
-
-
-function formatFileSize(
-    bytes
-) {
-
-    if (
-        bytes <= 0
-    ) {
-
-        return "0 KB";
-
+function sourceToString(source) {
+    if (Array.isArray(source)) {
+        return source.join("");
     }
 
+    if (
+        source === null ||
+        source === undefined
+    ) {
+        return "";
+    }
 
-    const units = [
-        "Bytes",
-        "KB",
-        "MB",
-        "GB"
-    ];
-
-
-    const index =
-        Math.min(
-            Math.floor(
-                Math.log(bytes) /
-                Math.log(1024)
-            ),
-            units.length - 1
-        );
-
-
-    const value =
-        bytes /
-        Math.pow(
-            1024,
-            index
-        );
-
-
-    return (
-        Math.round(
-            value * 100
-        ) / 100
-    )
-    + " "
-    + units[index];
-
+    return String(source);
 }
 
 
-function sleep(
-    milliseconds
-) {
+function formatFileSize(bytes) {
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
 
-    return new Promise(
-        resolve => {
+    if (bytes < 1024 * 1024) {
+        return `${(
+            bytes / 1024
+        ).toFixed(1)} KB`;
+    }
 
-            setTimeout(
-                resolve,
-                milliseconds
-            );
-
-        }
-    );
-
+    return `${(
+        bytes /
+        (1024 * 1024)
+    ).toFixed(1)} MB`;
 }
