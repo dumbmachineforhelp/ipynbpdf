@@ -2,17 +2,25 @@
 
 
 /* =========================================================
-   DOM ELEMENTS
+   ELEMENTS
    ========================================================= */
 
-const fileInput = document.getElementById("fileInput");
-const dropZone = document.getElementById("dropZone");
+const fileInput =
+    document.getElementById("fileInput");
 
-const fileInfo = document.getElementById("fileInfo");
-const fileName = document.getElementById("fileName");
-const fileSize = document.getElementById("fileSize");
+const dropZone =
+    document.getElementById("dropZone");
 
-const removeFileButton =
+const fileInfo =
+    document.getElementById("fileInfo");
+
+const fileName =
+    document.getElementById("fileName");
+
+const fileSize =
+    document.getElementById("fileSize");
+
+const removeFile =
     document.getElementById("removeFile");
 
 const convertButton =
@@ -34,7 +42,9 @@ const errorMessage =
     document.getElementById("errorMessage");
 
 const pdfRenderContainer =
-    document.getElementById("pdfRenderContainer");
+    document.getElementById(
+        "pdfRenderContainer"
+    );
 
 
 /* =========================================================
@@ -45,30 +55,33 @@ let selectedFile = null;
 
 
 /* =========================================================
-   INITIALIZATION
+   INIT
    ========================================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
-    if (!fileInput) {
-        console.error("fileInput was not found.");
-        return;
+        setupFileInput();
+
+        setupDragAndDrop();
+
+        removeFile.addEventListener(
+            "click",
+            clearSelectedFile
+        );
+
+        convertButton.addEventListener(
+            "click",
+            convertNotebook
+        );
+
     }
-
-    if (!dropZone) {
-        console.error("dropZone was not found.");
-        return;
-    }
-
-    setupFileInput();
-    setupDragAndDrop();
-    setupButtons();
-
-});
+);
 
 
 /* =========================================================
-   FILE INPUT
+   FILE PICKER
    ========================================================= */
 
 function setupFileInput() {
@@ -76,158 +89,139 @@ function setupFileInput() {
     /*
         IMPORTANT:
 
-        We intentionally DO NOT do:
+        Do NOT use fileInput.click() here.
 
-            fileInput.click()
-
-        from the drop-zone click handler.
-
-        The HTML <label for="fileInput"> handles the
-        Chrome file picker natively.
+        The native <label for="fileInput">
+        opens the Chrome file picker.
     */
 
-    fileInput.addEventListener("change", (event) => {
+    fileInput.addEventListener(
+        "change",
+        (event) => {
 
-        const file =
-            event.target.files &&
-            event.target.files[0];
+            const file =
+                event.target.files &&
+                event.target.files[0];
 
-        if (!file) {
-            return;
+            if (!file) {
+                return;
+            }
+
+            selectFile(file);
+
         }
-
-        handleFile(file);
-    });
+    );
 
 }
 
 
 /* =========================================================
-   DRAG & DROP
+   DRAG AND DROP
    ========================================================= */
 
 function setupDragAndDrop() {
 
-    [
+    dropZone.addEventListener(
         "dragenter",
-        "dragover"
-    ].forEach((eventName) => {
+        preventDrag
+    );
 
-        dropZone.addEventListener(
-            eventName,
-            (event) => {
+    dropZone.addEventListener(
+        "dragover",
+        preventDrag
+    );
 
-                event.preventDefault();
-                event.stopPropagation();
-
-                dropZone.classList.add("dragover");
-            }
-        );
-
-    });
-
-
-    [
+    dropZone.addEventListener(
         "dragleave",
-        "drop"
-    ].forEach((eventName) => {
+        (event) => {
 
-        dropZone.addEventListener(
-            eventName,
-            (event) => {
+            event.preventDefault();
 
-                event.preventDefault();
-                event.stopPropagation();
+            dropZone.classList.remove(
+                "dragover"
+            );
 
-                dropZone.classList.remove("dragover");
-            }
-        );
-
-    });
-
+        }
+    );
 
     dropZone.addEventListener(
         "drop",
         (event) => {
 
+            event.preventDefault();
+            event.stopPropagation();
+
+            dropZone.classList.remove(
+                "dragover"
+            );
+
             const files =
-                event.dataTransfer &&
                 event.dataTransfer.files;
 
-            if (!files || !files.length) {
-                return;
+            if (
+                files &&
+                files.length > 0
+            ) {
+
+                selectFile(
+                    files[0]
+                );
+
             }
 
-            handleFile(files[0]);
         }
     );
 
 }
 
 
-/* =========================================================
-   BUTTONS
-   ========================================================= */
+function preventDrag(event) {
 
-function setupButtons() {
+    event.preventDefault();
 
-    removeFileButton.addEventListener(
-        "click",
-        removeSelectedFile
-    );
+    event.stopPropagation();
 
-    convertButton.addEventListener(
-        "click",
-        convertNotebook
+    dropZone.classList.add(
+        "dragover"
     );
 
 }
 
 
 /* =========================================================
-   HANDLE FILE
+   SELECT FILE
    ========================================================= */
 
-function handleFile(file) {
+function selectFile(file) {
 
     clearError();
 
-    if (!file) {
-        return;
-    }
 
-
-    /*
-        Check extension.
-    */
-
-    const name =
-        file.name.toLowerCase();
-
-    if (!name.endsWith(".ipynb")) {
+    if (!file.name
+        .toLowerCase()
+        .endsWith(".ipynb")) {
 
         showError(
             "Please select a Jupyter Notebook (.ipynb) file."
         );
 
-        resetFileInput();
+        fileInput.value = "";
 
         return;
     }
 
 
-    /*
-        Basic size warning.
-    */
-
-    if (file.size > 50 * 1024 * 1024) {
+    if (
+        file.size >
+        50 * 1024 * 1024
+    ) {
 
         showError(
             "This notebook is larger than 50 MB. " +
-            "Very large notebooks may require more browser memory."
+            "Large notebooks may require too much browser memory."
         );
 
-        resetFileInput();
+        fileInput.value = "";
 
         return;
     }
@@ -236,36 +230,41 @@ function handleFile(file) {
     selectedFile = file;
 
 
-    /*
-        Update UI.
-    */
-
     fileName.textContent =
         file.name;
 
     fileSize.textContent =
-        formatFileSize(file.size);
+        formatFileSize(
+            file.size
+        );
 
-    fileInfo.classList.remove("hidden");
 
-    convertButton.disabled = false;
+    fileInfo.classList.remove(
+        "hidden"
+    );
+
+    convertButton.disabled =
+        false;
 
 }
 
 
 /* =========================================================
-   REMOVE FILE
+   CLEAR FILE
    ========================================================= */
 
-function removeSelectedFile() {
+function clearSelectedFile() {
 
     selectedFile = null;
 
-    resetFileInput();
+    fileInput.value = "";
 
-    fileInfo.classList.add("hidden");
+    fileInfo.classList.add(
+        "hidden"
+    );
 
-    convertButton.disabled = true;
+    convertButton.disabled =
+        true;
 
     clearError();
 
@@ -273,42 +272,28 @@ function removeSelectedFile() {
 
 
 /* =========================================================
-   RESET INPUT
-   ========================================================= */
-
-function resetFileInput() {
-
-    /*
-        Resetting the input allows the user to select
-        the same file again later.
-    */
-
-    fileInput.value = "";
-
-}
-
-
-/* =========================================================
-   CONVERSION
+   CONVERT
    ========================================================= */
 
 async function convertNotebook() {
 
     if (!selectedFile) {
-        showError("Please select an .ipynb file first.");
+
+        showError(
+            "Please select an .ipynb file first."
+        );
+
         return;
     }
 
 
-    /*
-        Disable UI while converting.
-    */
-
     convertButton.disabled = true;
 
+    clearError();
+
     showStatus(
-        "Reading notebook...",
-        "Loading your .ipynb file"
+        "Preparing...",
+        "Reading your notebook"
     );
 
 
@@ -318,25 +303,29 @@ async function convertNotebook() {
 
 
         /*
-            Read notebook.
+            Read JSON.
         */
 
         const notebook =
-            await readNotebook(selectedFile);
+            await readNotebook(
+                selectedFile
+            );
 
 
-        updateStatus(
-            "Rendering notebook...",
-            "Building the PDF layout"
+        showStatus(
+            "Preparing...",
+            "Building notebook"
         );
 
 
         /*
-            Render HTML.
+            Build the notebook DOM.
         */
 
         const html =
-            notebookToHTML(notebook);
+            notebookToHTML(
+                notebook
+            );
 
 
         pdfRenderContainer.innerHTML =
@@ -344,16 +333,15 @@ async function convertNotebook() {
 
 
         /*
-            Give browser time to insert DOM.
+            Wait for browser layout.
         */
 
-        await nextFrame();
-        await nextFrame();
+        await waitForPaint();
 
 
-        updateStatus(
-            "Rendering formulas...",
-            "Waiting for MathJax"
+        showStatus(
+            "Preparing...",
+            "Loading images and formulas"
         );
 
 
@@ -361,48 +349,53 @@ async function convertNotebook() {
             pdfRenderContainer
         );
 
-        await waitForMath();
+
+        await renderMath();
+
+
+        await waitForPaint();
 
 
         /*
-            Chrome sometimes needs an additional paint
-            cycle before html2canvas sees the complete DOM.
+            Give Chrome a short moment to finish
+            painting the final DOM.
         */
 
-        await nextFrame();
-        await nextFrame();
-
-        await sleep(300);
+        await sleep(200);
 
 
-        updateStatus(
-            "Creating PDF...",
-            "Rendering notebook pages"
-        );
-
+        /*
+            Create PDF.
+        */
 
         const pdf =
-            await createPDF(
-                pdfRenderContainer
-            );
+            await buildPDF();
 
 
-        updateStatus(
-            "Finishing...",
-            "Preparing your download"
+        /*
+            Download only AFTER PDF creation is
+            completely finished.
+        */
+
+        showStatus(
+            "Downloading...",
+            "Preparing your PDF"
         );
 
 
         const outputName =
-            selectedFile.name
-                .replace(/\.ipynb$/i, "")
-            + ".pdf";
+            selectedFile.name.replace(
+                /\.ipynb$/i,
+                ""
+            ) + ".pdf";
 
 
-        pdf.save(outputName);
+        pdf.save(
+            outputName
+        );
 
 
-        updateStatus(
+        showStatus(
             "Done!",
             "Your PDF has been downloaded"
         );
@@ -415,14 +408,18 @@ async function convertNotebook() {
 
     } catch (error) {
 
-        console.error(error);
+        console.error(
+            "IPYNB → PDF error:",
+            error
+        );
 
         hideStatus();
 
         showError(
-            error && error.message
+            error &&
+            error.message
                 ? error.message
-                : "Could not convert the notebook."
+                : "Could not create the PDF."
         );
 
     } finally {
@@ -430,11 +427,16 @@ async function convertNotebook() {
         convertButton.disabled =
             !selectedFile;
 
+
         /*
-            Clean rendering area.
+            VERY IMPORTANT:
+
+            Destroy the temporary notebook DOM
+            after conversion.
         */
 
-        pdfRenderContainer.innerHTML = "";
+        pdfRenderContainer.innerHTML =
+            "";
 
     }
 
@@ -449,25 +451,32 @@ function verifyLibraries() {
 
     if (
         !window.marked ||
-        typeof window.marked.parse !== "function"
+        typeof window.marked.parse !==
+            "function"
     ) {
+
         throw new Error(
             "Markdown library failed to load. Please refresh the page."
         );
+
     }
 
 
     if (!window.DOMPurify) {
+
         throw new Error(
             "DOMPurify failed to load. Please refresh the page."
         );
+
     }
 
 
     if (!window.html2canvas) {
+
         throw new Error(
             "html2canvas failed to load. Please refresh the page."
         );
+
     }
 
 
@@ -475,9 +484,11 @@ function verifyLibraries() {
         !window.jspdf ||
         !window.jspdf.jsPDF
     ) {
+
         throw new Error(
             "jsPDF failed to load. Please refresh the page."
         );
+
     }
 
 }
@@ -496,54 +507,64 @@ function readNotebook(file) {
                 new FileReader();
 
 
-            reader.onload = () => {
+            reader.onload =
+                () => {
 
-                try {
+                    try {
 
-                    const notebook =
-                        JSON.parse(reader.result);
+                        const notebook =
+                            JSON.parse(
+                                reader.result
+                            );
 
-                    if (
-                        !notebook ||
-                        !Array.isArray(
-                            notebook.cells
-                        )
-                    ) {
 
-                        throw new Error(
-                            "This does not appear to be a valid Jupyter Notebook."
+                        if (
+                            !notebook ||
+                            !Array.isArray(
+                                notebook.cells
+                            )
+                        ) {
+
+                            throw new Error(
+                                "Invalid notebook"
+                            );
+
+                        }
+
+
+                        resolve(
+                            notebook
                         );
+
+                    } catch {
+
+                        reject(
+                            new Error(
+                                "Could not read the notebook. " +
+                                "The .ipynb file may be invalid."
+                            )
+                        );
+
                     }
 
+                };
 
-                    resolve(notebook);
 
-                } catch (error) {
+            reader.onerror =
+                () => {
 
                     reject(
                         new Error(
-                            "Could not read the notebook JSON. " +
-                            "Make sure the .ipynb file is valid."
+                            "The browser could not read the selected file."
                         )
                     );
 
-                }
-
-            };
+                };
 
 
-            reader.onerror = () => {
-
-                reject(
-                    new Error(
-                        "The browser could not read this file."
-                    )
-                );
-
-            };
-
-
-            reader.readAsText(file);
+            reader.readAsText(
+                file
+            );
 
         }
     );
@@ -555,28 +576,28 @@ function readNotebook(file) {
    NOTEBOOK → HTML
    ========================================================= */
 
-function notebookToHTML(notebook) {
+function notebookToHTML(
+    notebook
+) {
 
-    let output = "";
-
-
-    output += `
+    let html = `
         <article class="notebook-document">
     `;
 
 
     /*
-        Notebook title.
+        Title
     */
 
-    output += `
+    html += `
         <h1 class="notebook-title">
             ${escapeHTML(
                 selectedFile
-                    ? selectedFile.name.replace(
-                        /\.ipynb$/i,
-                        ""
-                    )
+                    ? selectedFile.name
+                        .replace(
+                            /\.ipynb$/i,
+                            ""
+                        )
                     : "Jupyter Notebook"
             )}
         </h1>
@@ -584,30 +605,33 @@ function notebookToHTML(notebook) {
 
 
     /*
-        Cells.
+        Cells
     */
 
     notebook.cells.forEach(
         (cell, index) => {
 
-            const cellType =
+            const type =
                 cell.cell_type || "";
 
+
             const source =
-                Array.isArray(cell.source)
+                Array.isArray(
+                    cell.source
+                )
                     ? cell.source.join("")
-                    : String(cell.source || "");
+                    : String(
+                        cell.source || ""
+                    );
 
 
-            /*
-                Markdown cell
-            */
+            if (
+                type === "markdown"
+            ) {
 
-            if (cellType === "markdown") {
-
-                output += `
+                html += `
                     <section class="notebook-cell markdown-cell">
-                        ${markdownToHTML(source)}
+                        ${renderMarkdown(source)}
                     </section>
                 `;
 
@@ -615,19 +639,21 @@ function notebookToHTML(notebook) {
             }
 
 
-            /*
-                Code cell
-            */
+            if (
+                type === "code"
+            ) {
 
-            if (cellType === "code") {
+                const execution =
+                    cell.execution_count ??
+                    index + 1;
 
-                output += `
+
+                html += `
                     <section class="notebook-cell code-cell">
 
                         <div class="code-label">
                             In [${escapeHTML(
-                                cell.execution_count ??
-                                index + 1
+                                execution
                             )}]
                         </div>
 
@@ -635,11 +661,9 @@ function notebookToHTML(notebook) {
                             source
                         )}</pre>
 
-                        ${
-                            renderOutputs(
-                                cell.outputs || []
-                            )
-                        }
+                        ${renderOutputs(
+                            cell.outputs || []
+                        )}
 
                     </section>
                 `;
@@ -648,17 +672,17 @@ function notebookToHTML(notebook) {
             }
 
 
-            /*
-                Raw cell
-            */
+            if (
+                type === "raw"
+            ) {
 
-            if (cellType === "raw") {
-
-                output += `
+                html += `
                     <section class="notebook-cell markdown-cell">
+
                         <pre class="code-block">${escapeHTML(
                             source
                         )}</pre>
+
                     </section>
                 `;
 
@@ -668,12 +692,12 @@ function notebookToHTML(notebook) {
     );
 
 
-    output += `
+    html += `
         </article>
     `;
 
 
-    return output;
+    return html;
 
 }
 
@@ -682,17 +706,15 @@ function notebookToHTML(notebook) {
    MARKDOWN
    ========================================================= */
 
-function markdownToHTML(markdown) {
+function renderMarkdown(
+    markdown
+) {
 
     const parsed =
         window.marked.parse(
             markdown || ""
         );
 
-
-    /*
-        Sanitize generated HTML.
-    */
 
     return window.DOMPurify.sanitize(
         parsed
@@ -705,48 +727,66 @@ function markdownToHTML(markdown) {
    OUTPUTS
    ========================================================= */
 
-function renderOutputs(outputs) {
+function renderOutputs(
+    outputs
+) {
 
-    if (!Array.isArray(outputs)) {
+    if (
+        !Array.isArray(outputs)
+    ) {
+
         return "";
+
     }
 
 
     return outputs
-        .map(renderOutput)
+        .map(
+            renderOutput
+        )
         .join("");
 
 }
 
 
 /* =========================================================
-   SINGLE OUTPUT
+   OUTPUT
    ========================================================= */
 
-function renderOutput(output) {
+function renderOutput(
+    output
+) {
 
     if (!output) {
         return "";
     }
 
 
-    const outputType =
+    const type =
         output.output_type || "";
 
 
     /*
-        Stream output
+        Stream
     */
 
-    if (outputType === "stream") {
+    if (
+        type === "stream"
+    ) {
 
         const text =
-            Array.isArray(output.text)
+            Array.isArray(
+                output.text
+            )
                 ? output.text.join("")
-                : String(output.text || "");
+                : String(
+                    output.text || ""
+                );
+
 
         return `
             <div class="output-cell">
+
                 <div class="output-label">
                     Output
                 </div>
@@ -754,6 +794,7 @@ function renderOutput(output) {
                 <div class="output-text">${escapeHTML(
                     text
                 )}</div>
+
             </div>
         `;
 
@@ -761,15 +802,33 @@ function renderOutput(output) {
 
 
     /*
-        Error output
+        Error
     */
 
-    if (outputType === "error") {
+    if (
+        type === "error"
+    ) {
 
         const traceback =
-            Array.isArray(output.traceback)
+            Array.isArray(
+                output.traceback
+            )
                 ? output.traceback.join("\n")
                 : "";
+
+
+        const message =
+            traceback ||
+            (
+                String(
+                    output.ename || ""
+                )
+                +
+                "\n" +
+                String(
+                    output.evalue || ""
+                )
+            );
 
 
         return `
@@ -780,16 +839,7 @@ function renderOutput(output) {
                 </div>
 
                 <div class="output-error">${escapeHTML(
-                    traceback ||
-                    (
-                        String(
-                            output.ename || ""
-                        )
-                        + "\n"
-                        + String(
-                            output.evalue || ""
-                        )
-                    )
+                    message
                 )}</div>
 
             </div>
@@ -799,17 +849,16 @@ function renderOutput(output) {
 
 
     /*
-        display_data / execute_result
+        Display / execute result
     */
 
     if (
-        outputType === "display_data" ||
-        outputType === "execute_result"
+        type === "display_data" ||
+        type === "execute_result"
     ) {
 
-        return renderMimeBundle(
-            output.data || {},
-            output.metadata || {}
+        return renderMimeData(
+            output.data || {}
         );
 
     }
@@ -821,26 +870,22 @@ function renderOutput(output) {
 
 
 /* =========================================================
-   MIME BUNDLE
+   MIME DATA
    ========================================================= */
 
-function renderMimeBundle(
-    data,
-    metadata
+function renderMimeData(
+    data
 ) {
 
-    if (!data) {
-        return "";
-    }
-
-
     /*
-        Prefer PNG.
+        PNG
     */
 
-    if (data["image/png"]) {
+    if (
+        data["image/png"]
+    ) {
 
-        const src =
+        const image =
             Array.isArray(
                 data["image/png"]
             )
@@ -857,7 +902,7 @@ function renderMimeBundle(
 
                 <img
                     class="output-image"
-                    src="data:image/png;base64,${src}"
+                    src="data:image/png;base64,${image}"
                     alt="Notebook output"
                 >
 
@@ -871,9 +916,11 @@ function renderMimeBundle(
         JPEG
     */
 
-    if (data["image/jpeg"]) {
+    if (
+        data["image/jpeg"]
+    ) {
 
-        const src =
+        const image =
             Array.isArray(
                 data["image/jpeg"]
             )
@@ -890,7 +937,7 @@ function renderMimeBundle(
 
                 <img
                     class="output-image"
-                    src="data:image/jpeg;base64,${src}"
+                    src="data:image/jpeg;base64,${image}"
                     alt="Notebook output"
                 >
 
@@ -904,7 +951,9 @@ function renderMimeBundle(
         SVG
     */
 
-    if (data["image/svg+xml"]) {
+    if (
+        data["image/svg+xml"]
+    ) {
 
         const svg =
             Array.isArray(
@@ -946,7 +995,9 @@ function renderMimeBundle(
         HTML
     */
 
-    if (data["text/html"]) {
+    if (
+        data["text/html"]
+    ) {
 
         const html =
             Array.isArray(
@@ -983,7 +1034,9 @@ function renderMimeBundle(
         Plain text
     */
 
-    if (data["text/plain"]) {
+    if (
+        data["text/plain"]
+    ) {
 
         const text =
             Array.isArray(
@@ -1016,10 +1069,10 @@ function renderMimeBundle(
 
 
 /* =========================================================
-   CREATE PDF
+   BUILD PDF
    ========================================================= */
 
-async function createPDF(container) {
+async function buildPDF() {
 
     const {
         jsPDF
@@ -1027,40 +1080,43 @@ async function createPDF(container) {
 
 
     /*
-        A4 dimensions in mm.
+        A4
     */
 
-    const pageWidth = 210;
-    const pageHeight = 297;
+    const PAGE_WIDTH =
+        210;
 
-    const margin = 10;
+    const PAGE_HEIGHT =
+        297;
 
-    const contentWidth =
-        pageWidth - margin * 2;
+    const MARGIN =
+        10;
 
-    const contentHeight =
-        pageHeight - margin * 2;
+    const CONTENT_WIDTH =
+        PAGE_WIDTH -
+        MARGIN * 2;
+
+    const CONTENT_HEIGHT =
+        PAGE_HEIGHT -
+        MARGIN * 2;
 
 
     /*
-        Render width.
+        We deliberately use a modest scale.
 
-        794px is approximately A4 width at 96 DPI.
-        Keeping this fixed avoids huge Chrome canvases.
+        This reduces Chrome memory consumption.
     */
 
-    const renderWidth = 794;
-
-    container.style.width =
-        `${renderWidth}px`;
+    const SCALE =
+        1.25;
 
 
-    /*
-        Measure document.
-    */
+    const RENDER_WIDTH =
+        794;
+
 
     const documentElement =
-        container.querySelector(
+        pdfRenderContainer.querySelector(
             ".notebook-document"
         );
 
@@ -1068,19 +1124,33 @@ async function createPDF(container) {
     if (!documentElement) {
 
         throw new Error(
-            "The notebook could not be rendered."
+            "Notebook rendering failed."
         );
 
     }
 
 
+    /*
+        Force fixed rendering width.
+    */
+
+    documentElement.style.width =
+        `${RENDER_WIDTH}px`;
+
+
+    /*
+        Get total document height.
+    */
+
     const totalHeight =
-        documentElement.scrollHeight;
+        Math.ceil(
+            documentElement.getBoundingClientRect()
+                .height
+        );
 
 
     if (
-        !totalHeight ||
-        totalHeight < 10
+        totalHeight <= 0
     ) {
 
         throw new Error(
@@ -1091,7 +1161,7 @@ async function createPDF(container) {
 
 
     /*
-        PDF.
+        Create PDF.
     */
 
     const pdf =
@@ -1104,313 +1174,303 @@ async function createPDF(container) {
 
 
     /*
-        Chrome can struggle with very tall canvases.
+        Convert PDF dimensions into pixels.
 
-        Instead of capturing the entire notebook at once,
-        capture it in smaller chunks.
+        We capture approximately one PDF page
+        at a time rather than a huge notebook canvas.
     */
 
-    const chunkHeight = 900;
+    const pixelsPerMm =
+        (
+            RENDER_WIDTH * SCALE
+        ) /
+        CONTENT_WIDTH;
 
-    const scale = 1.5;
 
+    const PAGE_PIXEL_HEIGHT =
+        Math.floor(
+            CONTENT_HEIGHT *
+            pixelsPerMm
+        );
+
+
+    /*
+        Capture a little less than the entire page.
+
+        This gives Chrome some safety around rounding.
+    */
+
+    const CAPTURE_HEIGHT =
+        Math.min(
+            1050,
+            PAGE_PIXEL_HEIGHT
+        );
+
+
+    /*
+        Current position in the notebook.
+    */
 
     let currentY = 0;
 
     let pageNumber = 0;
 
 
+    /*
+        Page-by-page rendering.
+    */
+
     while (
         currentY < totalHeight
     ) {
 
-        const remainingHeight =
-            totalHeight - currentY;
+        const remaining =
+            totalHeight -
+            currentY;
 
-        const currentChunkHeight =
+
+        const chunkHeight =
             Math.min(
-                chunkHeight,
-                remainingHeight
+                CAPTURE_HEIGHT,
+                remaining
             );
 
 
-        /*
-            Create a temporary wrapper.
+        showStatus(
+            "Creating PDF...",
+            `Rendering page ${pageNumber + 1}`
+        );
 
-            The notebook is shifted upward so html2canvas
-            captures only the desired section.
+
+        /*
+            Create a small temporary page.
         */
 
-        const wrapper =
-            document.createElement("div");
+        const pageWrapper =
+            document.createElement(
+                "div"
+            );
 
 
-        wrapper.style.position =
-            "absolute";
+        pageWrapper.style.position =
+            "fixed";
 
-        wrapper.style.left = "0";
-        wrapper.style.top = "0";
+        pageWrapper.style.left =
+            "-100000px";
 
-        wrapper.style.width =
-            `${renderWidth}px`;
+        pageWrapper.style.top =
+            "0";
 
-        wrapper.style.height =
-            `${currentChunkHeight}px`;
+        pageWrapper.style.width =
+            `${RENDER_WIDTH}px`;
 
-        wrapper.style.overflow =
+        pageWrapper.style.height =
+            `${chunkHeight}px`;
+
+        pageWrapper.style.overflow =
             "hidden";
 
-        wrapper.style.background =
-            "white";
+        pageWrapper.style.background =
+            "#ffffff";
 
+        pageWrapper.style.zIndex =
+            "-1";
+
+
+        /*
+            Clone only the notebook for this
+            individual capture.
+        */
 
         const clone =
-            documentElement.cloneNode(true);
+            documentElement.cloneNode(
+                true
+            );
 
 
         clone.style.position =
             "absolute";
 
-        clone.style.left = "0";
+        clone.style.left =
+            "0";
 
         clone.style.top =
             `${-currentY}px`;
 
         clone.style.width =
-            `${renderWidth}px`;
+            `${RENDER_WIDTH}px`;
 
-        clone.style.margin = "0";
+        clone.style.margin =
+            "0";
 
 
-        wrapper.appendChild(clone);
+        pageWrapper.appendChild(
+            clone
+        );
 
-        document.body.appendChild(wrapper);
+
+        document.body.appendChild(
+            pageWrapper
+        );
 
 
         /*
-            Wait for browser paint.
+            Let Chrome paint the small page.
         */
 
         await nextFrame();
 
 
         /*
-            Render chunk.
+            Capture.
         */
 
-        const canvas =
-            await window.html2canvas(
-                wrapper,
-                {
-                    backgroundColor: "#ffffff",
-
-                    scale: scale,
-
-                    useCORS: true,
-
-                    allowTaint: false,
-
-                    logging: false,
-
-                    imageTimeout: 15000,
-
-                    width: renderWidth,
-
-                    height: currentChunkHeight,
-
-                    windowWidth: renderWidth,
-
-                    windowHeight: currentChunkHeight,
-
-                    scrollX: 0,
-
-                    scrollY: 0
-                }
-            );
+        let canvas;
 
 
-        document.body.removeChild(
-            wrapper
-        );
+        try {
 
+            canvas =
+                await window.html2canvas(
+                    pageWrapper,
+                    {
+                        backgroundColor:
+                            "#ffffff",
 
-        /*
-            Determine how much of this canvas fits
-            on one PDF page.
+                        scale:
+                            SCALE,
 
-            Since the canvas chunk is smaller than a page
-            in normal cases, this also prevents oversized
-            images.
-        */
+                        width:
+                            RENDER_WIDTH,
 
-        const pixelsPerMm =
-            canvas.width /
-            contentWidth;
+                        height:
+                            chunkHeight,
 
+                        windowWidth:
+                            RENDER_WIDTH,
 
-        const maxCanvasHeight =
-            Math.floor(
-                contentHeight *
-                pixelsPerMm
-            );
+                        windowHeight:
+                            chunkHeight,
 
+                        scrollX:
+                            0,
 
-        /*
-            Slice this chunk if necessary.
-        */
+                        scrollY:
+                            0,
 
-        let sliceY = 0;
+                        useCORS:
+                            true,
 
+                        allowTaint:
+                            false,
 
-        while (
-            sliceY < canvas.height
-        ) {
+                        logging:
+                            false,
 
-            const sliceHeight =
-                Math.min(
-                    maxCanvasHeight,
-                    canvas.height - sliceY
+                        imageTimeout:
+                            10000
+                    }
                 );
 
-
-            const pageCanvas =
-                document.createElement(
-                    "canvas"
-                );
-
-
-            pageCanvas.width =
-                canvas.width;
-
-            pageCanvas.height =
-                sliceHeight;
-
-
-            const ctx =
-                pageCanvas.getContext(
-                    "2d"
-                );
-
-
-            ctx.fillStyle =
-                "#ffffff";
-
-            ctx.fillRect(
-                0,
-                0,
-                pageCanvas.width,
-                pageCanvas.height
-            );
-
-
-            ctx.drawImage(
-                canvas,
-
-                0,
-                sliceY,
-
-                canvas.width,
-                sliceHeight,
-
-                0,
-                0,
-
-                pageCanvas.width,
-                pageCanvas.height
-            );
-
-
-            const imageData =
-                pageCanvas.toDataURL(
-                    "image/jpeg",
-                    0.92
-                );
-
-
-            if (pageNumber > 0) {
-
-                pdf.addPage();
-
-            }
-
-
-            const imageHeight =
-                sliceHeight /
-                pixelsPerMm;
-
-
-            pdf.addImage(
-                imageData,
-                "JPEG",
-                margin,
-                margin,
-                contentWidth,
-                imageHeight,
-                undefined,
-                "FAST"
-            );
-
-
-            pageNumber++;
-
-            sliceY += sliceHeight;
-
+        } finally {
 
             /*
-                Free memory.
+                Remove the page immediately.
             */
 
-            pageCanvas.width = 1;
-            pageCanvas.height = 1;
-
-
-            await nextFrame();
+            pageWrapper.remove();
 
         }
 
 
         /*
-            Free the main chunk canvas.
+            Determine actual PDF image height.
+        */
+
+        const imageHeight =
+            canvas.height /
+            pixelsPerMm;
+
+
+        /*
+            New PDF page except first.
+        */
+
+        if (
+            pageNumber > 0
+        ) {
+
+            pdf.addPage();
+
+        }
+
+
+        /*
+            Convert directly to JPEG.
+
+            JPEG uses substantially less memory
+            than PNG for large notebook pages.
+        */
+
+        const imageData =
+            canvas.toDataURL(
+                "image/jpeg",
+                0.88
+            );
+
+
+        pdf.addImage(
+            imageData,
+            "JPEG",
+            MARGIN,
+            MARGIN,
+            CONTENT_WIDTH,
+            Math.min(
+                imageHeight,
+                CONTENT_HEIGHT
+            ),
+            undefined,
+            "FAST"
+        );
+
+
+        pageNumber++;
+
+
+        /*
+            Free canvas memory.
         */
 
         canvas.width = 1;
         canvas.height = 1;
 
+        canvas = null;
+
+
+        /*
+            Move forward.
+
+            Use the exact captured CSS height.
+        */
 
         currentY +=
-            currentChunkHeight;
+            chunkHeight;
 
 
         /*
-            Progress.
+            Let Chrome clean up memory.
         */
 
-        const progress =
-            Math.min(
-                100,
-                Math.round(
-                    (
-                        currentY /
-                        totalHeight
-                    ) * 100
-                )
-            );
+        await nextFrame();
 
-
-        updateStatus(
-            "Creating PDF...",
-            `${progress}% complete`
-        );
-
-
-        /*
-            Give Chrome a chance to release memory.
-        */
-
-        await sleep(30);
+        await sleep(20);
 
     }
 
+
+    /*
+        Return finished PDF.
+    */
 
     return pdf;
 
@@ -1421,7 +1481,9 @@ async function createPDF(container) {
    WAIT FOR IMAGES
    ========================================================= */
 
-async function waitForImages(container) {
+async function waitForImages(
+    container
+) {
 
     const images =
         Array.from(
@@ -1431,22 +1493,30 @@ async function waitForImages(container) {
         );
 
 
-    if (!images.length) {
+    if (
+        images.length === 0
+    ) {
+
         return;
+
     }
 
 
     await Promise.all(
         images.map(
-            (image) => {
+            image => {
 
-                if (image.complete) {
+                if (
+                    image.complete
+                ) {
+
                     return Promise.resolve();
+
                 }
 
 
                 return new Promise(
-                    (resolve) => {
+                    resolve => {
 
                         image.addEventListener(
                             "load",
@@ -1475,30 +1545,62 @@ async function waitForImages(container) {
 
 
 /* =========================================================
-   WAIT FOR MATHJAX
+   MATHJAX
    ========================================================= */
 
-async function waitForMath() {
+async function renderMath() {
 
     if (
         window.MathJax &&
-        window.MathJax.typesetPromise
+        typeof window.MathJax.typesetPromise ===
+            "function"
     ) {
 
         try {
 
-            await window.MathJax.typesetPromise();
+            await window.MathJax.typesetPromise(
+                [pdfRenderContainer]
+            );
 
         } catch (error) {
 
             console.warn(
-                "MathJax rendering warning:",
+                "MathJax warning:",
                 error
             );
 
         }
 
     }
+
+}
+
+
+/* =========================================================
+   PAINT
+   ========================================================= */
+
+function waitForPaint() {
+
+    return new Promise(
+        resolve => {
+
+            requestAnimationFrame(
+                () => {
+
+                    requestAnimationFrame(
+                        () => {
+
+                            resolve();
+
+                        }
+                    );
+
+                }
+            );
+
+        }
+    );
 
 }
 
@@ -1525,20 +1627,6 @@ function showStatus(
 }
 
 
-function updateStatus(
-    title,
-    text
-) {
-
-    statusTitle.textContent =
-        title;
-
-    statusText.textContent =
-        text;
-
-}
-
-
 function hideStatus() {
 
     status.classList.add(
@@ -1549,10 +1637,12 @@ function hideStatus() {
 
 
 /* =========================================================
-   ERROR
+   ERRORS
    ========================================================= */
 
-function showError(message) {
+function showError(
+    message
+) {
 
     errorMessage.textContent =
         message;
@@ -1580,59 +1670,13 @@ function clearError() {
    HELPERS
    ========================================================= */
 
-function formatFileSize(bytes) {
+function escapeHTML(
+    value
+) {
 
-    if (!bytes) {
-        return "0 KB";
-    }
-
-
-    const units = [
-        "Bytes",
-        "KB",
-        "MB",
-        "GB"
-    ];
-
-
-    const index =
-        Math.floor(
-            Math.log(bytes) /
-            Math.log(1024)
-        );
-
-
-    const size =
-        bytes /
-        Math.pow(
-            1024,
-            index
-        );
-
-
-    return (
-        Math.round(
-            size * 100
-        ) / 100
+    return String(
+        value ?? ""
     )
-    + " "
-    + units[
-        Math.min(
-            index,
-            units.length - 1
-        )
-    ];
-
-}
-
-
-/* =========================================================
-   ESCAPE HTML
-   ========================================================= */
-
-function escapeHTML(value) {
-
-    return String(value ?? "")
         .replace(
             /&/g,
             "&amp;"
@@ -1657,37 +1701,66 @@ function escapeHTML(value) {
 }
 
 
-/* =========================================================
-   NEXT FRAME
-   ========================================================= */
+function formatFileSize(
+    bytes
+) {
 
-function nextFrame() {
+    if (
+        bytes <= 0
+    ) {
 
-    return new Promise(
-        (resolve) => {
+        return "0 KB";
 
-            requestAnimationFrame(
-                () => resolve()
-            );
+    }
 
-        }
-    );
+
+    const units = [
+        "Bytes",
+        "KB",
+        "MB",
+        "GB"
+    ];
+
+
+    const index =
+        Math.min(
+            Math.floor(
+                Math.log(bytes) /
+                Math.log(1024)
+            ),
+            units.length - 1
+        );
+
+
+    const value =
+        bytes /
+        Math.pow(
+            1024,
+            index
+        );
+
+
+    return (
+        Math.round(
+            value * 100
+        ) / 100
+    )
+    + " "
+    + units[index];
 
 }
 
 
-/* =========================================================
-   SLEEP
-   ========================================================= */
-
-function sleep(ms) {
+function sleep(
+    milliseconds
+) {
 
     return new Promise(
-        (resolve) => {
+        resolve => {
 
             setTimeout(
                 resolve,
-                ms
+                milliseconds
             );
 
         }
