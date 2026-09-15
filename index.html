@@ -2,10 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>IPYNB to PDF</title>
 
@@ -14,199 +11,216 @@
     <!-- Markdown -->
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/lib/marked.umd.js"></script>
 
-    <!-- Sanitization -->
+    <!-- HTML Sanitizer -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 
-    <!-- HTML to Canvas -->
+    <!-- Canvas renderer -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
-    <!-- PDF -->
+    <!-- PDF generator -->
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 
-    <!-- MathJax configuration -->
+    <!-- MathJax -->
     <script>
         window.MathJax = {
             tex: {
                 inlineMath: [
-                    ['$', '$'],
-                    ['\\(', '\\)']
+                    ["$", "$"],
+                    ["\\(", "\\)"]
                 ],
                 displayMath: [
-                    ['$$', '$$'],
-                    ['\\[', '\\]']
+                    ["$$", "$$"],
+                    ["\\[", "\\]"]
                 ]
             },
             svg: {
-                fontCache: 'global'
+                fontCache: "global"
             }
         };
     </script>
 
-    <!-- MathJax -->
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 
-    <!-- Your application -->
+    <!-- App -->
     <script src="script.js" defer></script>
 </head>
 
 <body>
 
-    <main class="page">
+<main class="page">
 
-        <section class="app-card">
+    <section class="app-card">
 
-            <div class="hero">
-                <div class="hero-icon">📓</div>
+        <div class="hero">
 
-                <h1>
-                    IPYNB <span>to PDF</span>
-                </h1>
-
-                <p>
-                    Convert your Jupyter Notebook files into beautiful PDFs
-                    directly in your browser.
-                </p>
+            <div class="hero-icon">
+                📓
             </div>
 
+            <h1>
+                IPYNB <span>to PDF</span>
+            </h1>
 
-            <!-- Upload area -->
-            <div
-                id="dropZone"
-                class="drop-zone"
+            <p>
+                Convert your Jupyter Notebook files into beautiful PDFs
+                directly in your browser.
+            </p>
+
+        </div>
+
+
+        <!-- Upload -->
+
+        <div
+            id="dropZone"
+            class="drop-zone"
+        >
+
+            <div class="upload-icon">
+                ↑
+            </div>
+
+            <h2>
+                Drop your notebook here
+            </h2>
+
+            <p>
+                or
+            </p>
+
+            <!-- Native browser file picker -->
+            <label
+                for="fileInput"
+                class="browse-button"
+            >
+                Choose .ipynb file
+            </label>
+
+            <!-- Important:
+                 no "hidden" attribute -->
+            <input
+                type="file"
+                id="fileInput"
+                class="file-input"
+                accept=".ipynb,application/json"
             >
 
-                <div class="upload-icon">
-                    ↑
-                </div>
+            <small>
+                Maximum recommended notebook size: 20 MB
+            </small>
 
-                <h2>
-                    Drop your notebook here
-                </h2>
+        </div>
 
-                <p>
-                    or
-                </p>
 
-                <!-- Native browser file picker -->
-                <label
-                    for="fileInput"
-                    class="browse-button"
-                >
-                    Choose .ipynb file
-                </label>
+        <!-- Selected file -->
 
-                <!--
-                    Visually hidden instead of using the HTML "hidden"
-                    attribute. This works reliably with Chrome + label.
-                -->
-                <input
-                    type="file"
-                    id="fileInput"
-                    class="file-input"
-                    accept=".ipynb,application/json"
-                >
+        <div
+            id="fileInfo"
+            class="file-info hidden"
+        >
 
-                <small>
-                    Maximum recommended notebook size: 20 MB
-                </small>
+            <div class="file-icon">
+                📄
+            </div>
+
+            <div class="file-details">
+
+                <strong id="fileName">
+                    notebook.ipynb
+                </strong>
+
+                <span id="fileSize">
+                    0 KB
+                </span>
 
             </div>
 
-
-            <!-- File information -->
-            <div
-                id="fileInfo"
-                class="file-info hidden"
-            >
-
-                <div class="file-icon">
-                    📄
-                </div>
-
-                <div class="file-details">
-                    <strong id="fileName">
-                        notebook.ipynb
-                    </strong>
-
-                    <span id="fileSize">
-                        0 KB
-                    </span>
-                </div>
-
-                <button
-                    id="removeFile"
-                    class="remove-button"
-                    type="button"
-                    aria-label="Remove file"
-                >
-                    ×
-                </button>
-
-            </div>
-
-
-            <!-- Convert button -->
             <button
-                id="convertButton"
-                class="convert-button"
+                id="removeFile"
+                class="remove-button"
                 type="button"
-                disabled
             >
-                <span class="convert-icon">↓</span>
-                Convert to PDF
+                ×
             </button>
 
+        </div>
 
-            <!-- Status -->
-            <div
-                id="status"
-                class="status hidden"
-            >
 
-                <div class="spinner"></div>
+        <!-- Convert -->
 
-                <div>
-                    <strong id="statusTitle">
-                        Converting...
-                    </strong>
+        <button
+            id="convertButton"
+            class="convert-button"
+            type="button"
+            disabled
+        >
+            <span class="convert-icon">↓</span>
+            Convert to PDF
+        </button>
 
-                    <span id="statusText">
-                        Preparing notebook
-                    </span>
-                </div>
+
+        <!-- Progress -->
+
+        <div
+            id="status"
+            class="status hidden"
+        >
+
+            <div class="spinner"></div>
+
+            <div>
+
+                <strong id="statusTitle">
+                    Preparing...
+                </strong>
+
+                <span id="statusText">
+                    Please wait
+                </span>
 
             </div>
 
-
-            <!-- Error -->
-            <div
-                id="errorBox"
-                class="error-box hidden"
-            >
-                <strong>Something went wrong</strong>
-
-                <p id="errorMessage"></p>
-            </div>
+        </div>
 
 
-            <footer>
-                <span>🔒</span>
-                Your notebook stays in your browser.
-                Nothing is uploaded to a server.
-            </footer>
+        <!-- Error -->
 
-        </section>
+        <div
+            id="errorBox"
+            class="error-box hidden"
+        >
 
-    </main>
+            <strong>
+                Something went wrong
+            </strong>
+
+            <p id="errorMessage"></p>
+
+        </div>
 
 
-    <!--
-        Hidden rendering area used only for PDF generation.
-    -->
-    <div
-        id="pdfRenderContainer"
-        class="pdf-render-container"
-    ></div>
+        <footer>
+            <span>🔒</span>
+            Your notebook stays in your browser.
+            Nothing is uploaded to a server.
+        </footer>
+
+    </section>
+
+</main>
+
+
+<!--
+    IMPORTANT
+
+    This is only a temporary rendering surface.
+    It is positioned far outside the visible page.
+-->
+<div
+    id="pdfRenderContainer"
+    class="pdf-render-container"
+    aria-hidden="true"
+></div>
 
 </body>
 </html>
