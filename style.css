@@ -1,213 +1,179 @@
+/* =========================================================
+   GENERAL APP
+   ========================================================= */
+
 * {
     box-sizing: border-box;
+}
+
+html,
+body {
     margin: 0;
     padding: 0;
+    min-height: 100%;
 }
 
 body {
-    min-height: 100vh;
-
     font-family:
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
+        Arial,
+        Helvetica,
         sans-serif;
 
-    background:
-        radial-gradient(
-            circle at top left,
-            #312e81,
-            transparent 35%
-        ),
-        radial-gradient(
-            circle at bottom right,
-            #581c87,
-            transparent 35%
-        ),
-        #0f172a;
+    background: #f5f7fb;
+    color: #111827;
+}
 
-    color: white;
+.app {
+    min-height: 100vh;
 
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
+
+    padding: 40px 20px;
 }
 
 .container {
     width: 100%;
     max-width: 650px;
-    padding: 25px;
-}
 
-.card {
-    background: rgba(255,255,255,0.08);
-
-    border: 1px solid rgba(255,255,255,0.15);
-
-    backdrop-filter: blur(20px);
-
-    border-radius: 24px;
+    background: white;
 
     padding: 45px;
 
-    text-align: center;
+    border-radius: 16px;
 
     box-shadow:
-        0 25px 60px rgba(0,0,0,0.35);
-}
-
-.logo {
-    width: 70px;
-    height: 70px;
-
-    margin: auto;
-    margin-bottom: 20px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    background:
-        linear-gradient(
-            135deg,
-            #6366f1,
-            #a855f7
-        );
-
-    border-radius: 20px;
-
-    font-size: 35px;
+        0 10px 40px rgba(0, 0, 0, 0.08);
 }
 
 h1 {
-    font-size: 42px;
-    font-weight: 800;
+    margin: 0;
+    text-align: center;
+
+    font-size: 34px;
 }
 
 .subtitle {
-    color: #cbd5e1;
+    margin: 12px 0 35px;
 
-    margin-top: 10px;
-    margin-bottom: 35px;
+    text-align: center;
 
-    font-size: 17px;
+    color: #6b7280;
+
+    line-height: 1.6;
 }
+
+
+/* =========================================================
+   DROP ZONE
+   ========================================================= */
 
 .drop-zone {
-    border: 2px dashed
-        rgba(255,255,255,0.25);
-
-    border-radius: 18px;
-
-    padding: 45px 20px;
-
-    cursor: pointer;
-
-    transition: 0.25s;
-}
-
-.drop-zone:hover,
-.drop-zone.dragover {
-    border-color: #818cf8;
-
-    background:
-        rgba(99,102,241,0.12);
-}
-
-.upload-icon {
-    width: 55px;
-    height: 55px;
-
-    margin: auto;
-    margin-bottom: 15px;
-
-    border-radius: 50%;
-
-    background:
-        rgba(99,102,241,0.2);
-
-    color: #a5b4fc;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    font-size: 28px;
-}
-
-.drop-zone h2 {
-    font-size: 19px;
-    margin-bottom: 7px;
-}
-
-.drop-zone p {
-    color: #a5b4fc;
-    margin-bottom: 12px;
-}
-
-.drop-zone span {
-    font-size: 13px;
-    color: #94a3b8;
-}
-
-.file-info {
-    margin-top: 15px;
-
-    padding: 14px 18px;
+    border: 2px dashed #cbd5e1;
 
     border-radius: 12px;
 
-    background:
-        rgba(255,255,255,0.08);
+    padding: 50px 25px;
+
+    text-align: center;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.2s,
+        background 0.2s;
+}
+
+.drop-zone:hover {
+    border-color: #6366f1;
+    background: #f8f8ff;
+}
+
+.drop-zone.dragover {
+    border-color: #4f46e5;
+    background: #eef2ff;
+}
+
+.upload-icon {
+    font-size: 50px;
+    margin-bottom: 15px;
+}
+
+.drop-zone h2 {
+    margin: 0 0 8px;
+
+    font-size: 21px;
+}
+
+.drop-zone p {
+    margin: 0;
+
+    color: #6b7280;
+}
+
+
+/* =========================================================
+   FILE INFO
+   ========================================================= */
+
+.file-info {
+    margin-top: 20px;
+
+    padding: 15px 18px;
+
+    border-radius: 10px;
+
+    background: #f3f4f6;
 
     display: flex;
 
     align-items: center;
 
-    gap: 10px;
+    justify-content: space-between;
 
-    text-align: left;
+    gap: 15px;
 }
 
-.file-info #fileName {
-    flex: 1;
-
-    overflow: hidden;
-
-    white-space: nowrap;
-
-    text-overflow: ellipsis;
+#fileName {
+    word-break: break-all;
 }
 
-.file-info button {
-    border: none;
+.remove-button {
+    flex-shrink: 0;
+
+    border: 0;
 
     background: transparent;
 
-    color: #94a3b8;
-
-    font-size: 24px;
+    color: #dc2626;
 
     cursor: pointer;
+
+    font-weight: 600;
 }
+
+.remove-button:hover {
+    text-decoration: underline;
+}
+
+
+/* =========================================================
+   CONVERT BUTTON
+   ========================================================= */
 
 .convert-button {
     width: 100%;
 
-    margin-top: 20px;
+    margin-top: 25px;
 
-    padding: 16px;
+    padding: 15px 20px;
 
-    border: none;
+    border: 0;
 
-    border-radius: 13px;
+    border-radius: 10px;
 
-    background:
-        linear-gradient(
-            135deg,
-            #6366f1,
-            #8b5cf6
-        );
+    background: #4f46e5;
 
     color: white;
 
@@ -217,82 +183,55 @@ h1 {
 
     cursor: pointer;
 
-    transition: 0.2s;
+    transition: background 0.2s;
 }
 
 .convert-button:hover:not(:disabled) {
-    transform: translateY(-2px);
-
-    box-shadow:
-        0 10px 25px
-        rgba(99,102,241,0.35);
+    background: #4338ca;
 }
 
 .convert-button:disabled {
-    opacity: 0.45;
+    opacity: 0.5;
 
     cursor: not-allowed;
 }
+
+
+/* =========================================================
+   STATUS
+   ========================================================= */
 
 .status {
     margin-top: 20px;
 
     padding: 15px;
 
-    border-radius: 12px;
-
-    background:
-        rgba(59,130,246,0.12);
-
-    color: #bfdbfe;
-
     display: flex;
-
-    align-items: center;
 
     justify-content: center;
 
-    gap: 10px;
+    align-items: center;
+
+    gap: 12px;
+
+    color: #374151;
+
+    background: #f3f4f6;
+
+    border-radius: 10px;
 }
 
 .spinner {
     width: 18px;
     height: 18px;
 
-    border: 2px solid
-        rgba(255,255,255,0.25);
+    border: 3px solid #d1d5db;
 
-    border-top-color: white;
+    border-top-color: #4f46e5;
 
     border-radius: 50%;
 
-    animation:
-        spin 0.8s linear infinite;
-}
-
-.error {
-    margin-top: 20px;
-
-    padding: 14px;
-
-    border-radius: 12px;
-
-    background:
-        rgba(239,68,68,0.15);
-
-    color: #fecaca;
-}
-
-.footer {
-    margin-top: 25px;
-
-    font-size: 12px;
-
-    color: #64748b;
-}
-
-.hidden {
-    display: none !important;
+    animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -301,14 +240,409 @@ h1 {
     }
 }
 
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.error {
+    margin-top: 20px;
+
+    padding: 15px;
+
+    border-radius: 10px;
+
+    background: #fef2f2;
+
+    border: 1px solid #fecaca;
+
+    color: #b91c1c;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
+
+.footer {
+    margin-top: 30px;
+
+    text-align: center;
+
+    font-size: 13px;
+
+    color: #9ca3af;
+}
+
+
+/* =========================================================
+   UTILITY
+   ========================================================= */
+
+.hidden {
+    display: none !important;
+}
+
+
+/* =========================================================
+   PDF RENDERING AREA
+   =========================================================
+
+   These styles are ONLY used while generating the PDF.
+   ========================================================= */
+
+.pdf-render-container {
+    position: absolute;
+
+    left: -10000px;
+    top: 0;
+
+    width: 794px;
+
+    display: block;
+
+    visibility: visible;
+
+    background: #ffffff;
+
+    color: #111111;
+
+    padding: 60px;
+
+    box-sizing: border-box;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    font-size: 14px;
+
+    line-height: 1.6;
+}
+
+.notebook-document {
+    width: 100%;
+
+    background: #ffffff;
+}
+
+.notebook-cell {
+    width: 100%;
+
+    margin-bottom: 30px;
+
+    break-inside: avoid;
+
+    page-break-inside: avoid;
+}
+
+
+/* =========================================================
+   PDF TITLES
+   ========================================================= */
+
+.notebook-title {
+    margin-top: 0;
+
+    margin-bottom: 35px;
+
+    font-size: 34px;
+
+    line-height: 1.25;
+
+    color: #111111;
+}
+
+.notebook-document h1 {
+    font-size: 30px;
+
+    line-height: 1.25;
+
+    margin-top: 30px;
+
+    margin-bottom: 18px;
+}
+
+.notebook-document h2 {
+    font-size: 24px;
+
+    line-height: 1.3;
+
+    margin-top: 26px;
+
+    margin-bottom: 14px;
+}
+
+.notebook-document h3 {
+    font-size: 19px;
+
+    line-height: 1.35;
+
+    margin-top: 22px;
+
+    margin-bottom: 12px;
+}
+
+.notebook-document h4,
+.notebook-document h5,
+.notebook-document h6 {
+    margin-top: 20px;
+
+    margin-bottom: 10px;
+}
+
+
+/* =========================================================
+   PDF TEXT
+   ========================================================= */
+
+.notebook-document p {
+    margin-top: 8px;
+
+    margin-bottom: 12px;
+}
+
+.notebook-document ul,
+.notebook-document ol {
+    margin-top: 10px;
+
+    margin-bottom: 15px;
+
+    padding-left: 30px;
+}
+
+.notebook-document li {
+    margin-bottom: 4px;
+}
+
+.notebook-document a {
+    color: #2563eb;
+
+    text-decoration: underline;
+}
+
+.notebook-document blockquote {
+    margin: 15px 0;
+
+    padding: 10px 15px;
+
+    border-left: 4px solid #cbd5e1;
+
+    color: #4b5563;
+
+    background: #f8fafc;
+}
+
+.notebook-document hr {
+    border: 0;
+
+    border-top: 1px solid #d1d5db;
+
+    margin: 25px 0;
+}
+
+
+/* =========================================================
+   INLINE CODE
+   ========================================================= */
+
+.notebook-document :not(pre) > code {
+    padding: 2px 5px;
+
+    border-radius: 4px;
+
+    background: #f1f1f1;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+
+    font-size: 0.9em;
+}
+
+
+/* =========================================================
+   CODE CELLS
+   ========================================================= */
+
+.code {
+    width: 100%;
+
+    box-sizing: border-box;
+
+    padding: 14px 16px;
+
+    margin: 12px 0;
+
+    background: #f5f5f5;
+
+    border: 1px solid #dddddd;
+
+    border-radius: 6px;
+
+    color: #111111;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+
+    font-size: 12px;
+
+    line-height: 1.55;
+
+    white-space: pre-wrap;
+
+    overflow-wrap: anywhere;
+
+    break-inside: avoid;
+
+    page-break-inside: avoid;
+}
+
+
+/* =========================================================
+   OUTPUTS
+   ========================================================= */
+
+.output {
+    width: 100%;
+
+    box-sizing: border-box;
+
+    margin-top: 12px;
+
+    margin-bottom: 15px;
+
+    padding: 12px;
+
+    background: #fafafa;
+
+    border-left: 4px solid #6366f1;
+
+    color: #111111;
+
+    overflow: hidden;
+
+    break-inside: avoid;
+
+    page-break-inside: avoid;
+}
+
+.output pre {
+    margin: 0;
+
+    white-space: pre-wrap;
+
+    overflow-wrap: anywhere;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 12px;
+
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   IMAGES
+   ========================================================= */
+
+.output-image {
+    display: block;
+
+    max-width: 100%;
+
+    height: auto;
+
+    margin: 8px auto;
+
+    break-inside: avoid;
+}
+
+.notebook-document img {
+    max-width: 100%;
+
+    height: auto;
+}
+
+
+/* =========================================================
+   TABLES
+   ========================================================= */
+
+.notebook-document table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    margin: 18px 0;
+
+    font-size: 13px;
+
+    break-inside: avoid;
+}
+
+.notebook-document th {
+    background: #f3f4f6;
+
+    font-weight: 700;
+}
+
+.notebook-document th,
+.notebook-document td {
+    border: 1px solid #cccccc;
+
+    padding: 7px 10px;
+
+    text-align: left;
+
+    vertical-align: top;
+}
+
+
+/* =========================================================
+   MATHJAX
+   ========================================================= */
+
+.notebook-document mjx-container {
+    max-width: 100%;
+
+    overflow-x: auto;
+
+    overflow-y: hidden;
+}
+
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
 @media (max-width: 600px) {
 
-    .card {
+    .app {
+        padding: 20px 12px;
+    }
+
+    .container {
         padding: 30px 20px;
     }
 
     h1 {
-        font-size: 34px;
+        font-size: 28px;
+    }
+
+    .drop-zone {
+        padding: 40px 15px;
     }
 
 }
