@@ -1,85 +1,95 @@
 "use strict";
 
 /* =========================================================
-   ELEMENTS
-   ========================================================= */
+   DOM ELEMENTS
+========================================================= */
 
 const dropZone = document.getElementById("dropZone");
-const fileInput = document.getElementById("notebook");
+const fileInput = document.getElementById("fileInput");
+const browseButton = document.getElementById("browseButton");
+
 const fileInfo = document.getElementById("fileInfo");
 const fileName = document.getElementById("fileName");
 const removeFile = document.getElementById("removeFile");
+
 const convertButton = document.getElementById("convertButton");
+
 const status = document.getElementById("status");
 const statusText = document.getElementById("statusText");
-const errorBox = document.getElementById("error");
+
+const errorBox = document.getElementById("errorBox");
+const errorText = document.getElementById("errorText");
+
+
+/* =========================================================
+   STATE
+========================================================= */
 
 let selectedFile = null;
 
 
 /* =========================================================
    FILE SELECTION
-   ========================================================= */
+========================================================= */
+
+browseButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    fileInput.click();
+});
 
 dropZone.addEventListener("click", () => {
     fileInput.click();
 });
 
+fileInput.addEventListener("change", (event) => {
+    const file = event.target.files[0];
 
-fileInput.addEventListener("change", () => {
-
-    if (fileInput.files.length > 0) {
-        selectFile(fileInput.files[0]);
+    if (file) {
+        handleFile(file);
     }
-
 });
 
 
 /* =========================================================
-   DRAG AND DROP
-   ========================================================= */
+   DRAG & DROP
+========================================================= */
 
 dropZone.addEventListener("dragover", (event) => {
-
     event.preventDefault();
 
     dropZone.classList.add("dragover");
-
 });
-
 
 dropZone.addEventListener("dragleave", () => {
-
     dropZone.classList.remove("dragover");
-
 });
 
-
 dropZone.addEventListener("drop", (event) => {
-
     event.preventDefault();
 
     dropZone.classList.remove("dragover");
 
-    if (event.dataTransfer.files.length > 0) {
-        selectFile(event.dataTransfer.files[0]);
-    }
+    const file = event.dataTransfer.files[0];
 
+    if (file) {
+        handleFile(file);
+    }
 });
 
 
 /* =========================================================
-   SELECT FILE
-   ========================================================= */
+   HANDLE FILE
+========================================================= */
 
-function selectFile(file) {
+function handleFile(file) {
 
     hideError();
 
-    if (!file.name.toLowerCase().endsWith(".ipynb")) {
+    const isIpynb =
+        file.name.toLowerCase().endsWith(".ipynb");
 
-        showError("Please select a .ipynb file.");
-
+    if (!isIpynb) {
+        showError("Please select a valid .ipynb file.");
         return;
     }
 
@@ -89,7 +99,7 @@ function selectFile(file) {
 
     fileInfo.classList.remove("hidden");
 
-    dropZone.classList.add("hidden");
+    dropZone.classList.add("has-file");
 
     convertButton.disabled = false;
 }
@@ -97,7 +107,7 @@ function selectFile(file) {
 
 /* =========================================================
    REMOVE FILE
-   ========================================================= */
+========================================================= */
 
 removeFile.addEventListener("click", () => {
 
@@ -107,208 +117,175 @@ removeFile.addEventListener("click", () => {
 
     fileInfo.classList.add("hidden");
 
-    dropZone.classList.remove("hidden");
+    dropZone.classList.remove("has-file");
 
     convertButton.disabled = true;
 
     hideError();
-
 });
 
 
 /* =========================================================
-   CONVERT
-   ========================================================= */
+   CONVERT BUTTON
+========================================================= */
 
 convertButton.addEventListener("click", async () => {
 
     if (!selectedFile) {
+        showError("Please select a notebook first.");
         return;
     }
 
-    hideError();
-
-    convertButton.disabled = true;
-
-    status.classList.remove("hidden");
-
     try {
 
-        /* ---------------------------------------------
-           Check libraries
-           --------------------------------------------- */
+        hideError();
 
-        if (!window.marked) {
+        setLoading(true, "Checking PDF libraries...");
+
+        if (
+            !window.marked ||
+            !window.DOMPurify ||
+            !window.html2canvas ||
+            !window.jspdf
+        ) {
             throw new Error(
-                "Markdown library failed to load."
+                "One or more required PDF libraries failed to load. Please refresh the page and try again."
             );
         }
 
-        if (!window.DOMPurify) {
+        setLoading(true, "Reading your notebook...");
+
+        const text = await selectedFile.text();
+
+        let notebook;
+
+        try {
+            notebook = JSON.parse(text);
+        } catch (error) {
             throw new Error(
-                "DOMPurify failed to load."
+                "The selected file is not valid JSON."
             );
         }
 
-        if (!window.html2canvas) {
+        if (
+            !notebook ||
+            !Array.isArray(notebook.cells)
+        ) {
             throw new Error(
-                "html2canvas failed to load."
+                "This file does not appear to be a valid Jupyter Notebook."
             );
         }
 
-        if (!window.jspdf) {
-            throw new Error(
-                "jsPDF failed to load."
-            );
-        }
+
+        /* -------------------------------------------------
+           CREATE HTML
+        ------------------------------------------------- */
+
+        setLoading(
+            true,
+            "Rendering notebook..."
+        );
+
+        const rendered = await notebookToHTML(notebook);
 
 
-        /* ---------------------------------------------
-           Read notebook
-           --------------------------------------------- */
+        /* -------------------------------------------------
+           WAIT FOR IMAGES
+        ------------------------------------------------- */
 
-        statusText.textContent =
-            "Reading notebook...";
+        setLoading(
+            true,
+            "Loading notebook images..."
+        );
 
-        const text =
-            await selectedFile.text();
-
-        const notebook =
-            JSON.parse(text);
+        await waitForImages(rendered);
 
 
-        /* ---------------------------------------------
-           Validate
-           --------------------------------------------- */
+        /* -------------------------------------------------
+           WAIT FOR MATHJAX
+        ------------------------------------------------- */
 
-        validateNotebook(notebook);
+        setLoading(
+            true,
+            "Rendering mathematical formulas..."
+        );
 
-
-        /* ---------------------------------------------
-           Render notebook
-           --------------------------------------------- */
-
-        statusText.textContent =
-            "Rendering notebook...";
-
-        const element =
-            await notebookToHTML(notebook);
+        await waitForMath(rendered);
 
 
-        /* ---------------------------------------------
-           Wait for images
-           --------------------------------------------- */
+        /* -------------------------------------------------
+           EXTRA CHROME PAINT TIME
+        ------------------------------------------------- */
 
-        statusText.textContent =
-            "Loading images...";
+        await new Promise(resolve =>
+            requestAnimationFrame(resolve)
+        );
 
-        await waitForImages(element);
+        await new Promise(resolve =>
+            requestAnimationFrame(resolve)
+        );
 
-
-        /* ---------------------------------------------
-           Wait for MathJax
-           --------------------------------------------- */
-
-        statusText.textContent =
-            "Rendering equations...";
-
-        await waitForMath();
+        await new Promise(resolve =>
+            setTimeout(resolve, 300)
+        );
 
 
-        /* ---------------------------------------------
-           Small delay to allow layout to settle
-           --------------------------------------------- */
+        /* -------------------------------------------------
+           CREATE PDF
+        ------------------------------------------------- */
 
-        await new Promise(resolve => {
-            requestAnimationFrame(() => {
-                requestAnimationFrame(resolve);
-            });
-        });
+        setLoading(
+            true,
+            "Creating PDF..."
+        );
 
-
-        /* ---------------------------------------------
-           Generate PDF
-           --------------------------------------------- */
-
-        statusText.textContent =
-            "Generating PDF...";
-
-        const pdf =
-            await createPDF(element);
+        const pdf = await createPDF(rendered);
 
 
-        /* ---------------------------------------------
-           Download
-           --------------------------------------------- */
+        /* -------------------------------------------------
+           SAVE PDF
+        ------------------------------------------------- */
 
-        const filename =
+        setLoading(
+            true,
+            "Saving PDF..."
+        );
+
+        const outputName =
             selectedFile.name.replace(
                 /\.ipynb$/i,
-                ".pdf"
-            );
+                ""
+            ) + ".pdf";
 
-        pdf.save(filename);
-
-
-        statusText.textContent =
-            "PDF downloaded successfully!";
+        pdf.save(outputName);
 
 
-        /* ---------------------------------------------
-           Remove temporary HTML
-           --------------------------------------------- */
+        /* -------------------------------------------------
+           CLEANUP
+        ------------------------------------------------- */
 
-        if (element && element.isConnected) {
-            element.remove();
-        }
+        rendered.remove();
 
+        setLoading(false);
 
     } catch (error) {
 
-        console.error(error);
+        console.error("PDF conversion error:", error);
+
+        setLoading(false);
 
         showError(
-            "Conversion failed: " +
-            (error.message || error)
+            error && error.message
+                ? error.message
+                : "Conversion failed. Please try again."
         );
-
-    } finally {
-
-        convertButton.disabled = false;
-
     }
-
 });
 
 
 /* =========================================================
-   VALIDATE NOTEBOOK
-   ========================================================= */
-
-function validateNotebook(notebook) {
-
-    if (!notebook || typeof notebook !== "object") {
-
-        throw new Error(
-            "Invalid notebook file."
-        );
-
-    }
-
-    if (!Array.isArray(notebook.cells)) {
-
-        throw new Error(
-            "This file does not contain notebook cells."
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   RENDER NOTEBOOK
-   ========================================================= */
+   NOTEBOOK → HTML
+========================================================= */
 
 async function notebookToHTML(notebook) {
 
@@ -319,18 +296,21 @@ async function notebookToHTML(notebook) {
         "pdf-render-container";
 
 
-    const wrapper =
+    const documentElement =
         document.createElement("div");
 
-    wrapper.className =
+    documentElement.className =
         "notebook-document";
 
 
-    /* ---------------------------------------------
+    /* -------------------------------------------------
        Notebook title
-       --------------------------------------------- */
+    ------------------------------------------------- */
 
-    if (notebook.metadata?.title) {
+    if (
+        notebook.metadata &&
+        notebook.metadata.title
+    ) {
 
         const title =
             document.createElement("h1");
@@ -341,16 +321,15 @@ async function notebookToHTML(notebook) {
         title.textContent =
             notebook.metadata.title;
 
-        wrapper.appendChild(title);
-
+        documentElement.appendChild(title);
     }
 
 
-    /* ---------------------------------------------
-       Notebook cells
-       --------------------------------------------- */
+    /* -------------------------------------------------
+       Cells
+    ------------------------------------------------- */
 
-    for (const cell of notebook.cells) {
+    notebook.cells.forEach((cell, index) => {
 
         const cellElement =
             document.createElement("section");
@@ -358,116 +337,132 @@ async function notebookToHTML(notebook) {
         cellElement.className =
             "notebook-cell";
 
+        cellElement.dataset.cellIndex =
+            index;
 
-        /* =========================================
+
+        /* =============================================
            MARKDOWN CELL
-           ========================================= */
+        ============================================= */
 
         if (cell.cell_type === "markdown") {
 
             const markdown =
-                Array.isArray(cell.source)
-                    ? cell.source.join("")
-                    : (cell.source || "");
+                sourceToString(cell.source);
 
-
-            const html =
+            let html =
                 window.marked.parse(markdown);
 
+            html =
+                window.DOMPurify.sanitize(
+                    html,
+                    {
+                        USE_PROFILES: {
+                            html: true
+                        }
+                    }
+                );
 
             cellElement.innerHTML =
-                window.DOMPurify.sanitize(html);
-
-
-            wrapper.appendChild(
-                cellElement
-            );
-
-            continue;
+                `<div class="markdown-cell">
+                    ${html}
+                </div>`;
         }
 
 
-        /* =========================================
+        /* =============================================
            CODE CELL
-           ========================================= */
+        ============================================= */
 
-        if (cell.cell_type === "code") {
+        else if (cell.cell_type === "code") {
 
             const source =
-                Array.isArray(cell.source)
-                    ? cell.source.join("")
-                    : (cell.source || "");
+                sourceToString(cell.source);
 
+            if (source.trim()) {
 
-            /* -------------------------------------
-               Code
-               ------------------------------------- */
+                const pre =
+                    document.createElement("pre");
 
-            const code =
-                document.createElement("pre");
+                pre.className = "code";
 
-            code.className =
-                "code";
+                const code =
+                    document.createElement("code");
 
+                code.textContent =
+                    source;
 
-            const codeElement =
-                document.createElement("code");
+                pre.appendChild(code);
 
-            codeElement.textContent =
-                source;
-
-
-            code.appendChild(codeElement);
-
-            cellElement.appendChild(code);
-
-
-            /* -------------------------------------
-               Outputs
-               ------------------------------------- */
-
-            for (
-                const output of
-                (cell.outputs || [])
-            ) {
-
-                const outputElement =
-                    renderOutput(output);
-
-
-                if (outputElement) {
-
-                    cellElement.appendChild(
-                        outputElement
-                    );
-
-                }
-
+                cellElement.appendChild(pre);
             }
 
 
-            wrapper.appendChild(
-                cellElement
-            );
+            /* -----------------------------------------
+               Outputs
+            ----------------------------------------- */
 
+            if (Array.isArray(cell.outputs)) {
+
+                cell.outputs.forEach(output => {
+
+                    const outputElement =
+                        renderOutput(output);
+
+                    if (outputElement) {
+
+                        cellElement.appendChild(
+                            outputElement
+                        );
+                    }
+                });
+            }
         }
 
-    }
+
+        /* =============================================
+           RAW CELL
+        ============================================= */
+
+        else if (cell.cell_type === "raw") {
+
+            const raw =
+                sourceToString(cell.source);
+
+            const pre =
+                document.createElement("pre");
+
+            pre.className = "raw-cell";
+
+            pre.textContent =
+                raw;
+
+            cellElement.appendChild(pre);
+        }
 
 
-    container.appendChild(wrapper);
+        documentElement.appendChild(
+            cellElement
+        );
+    });
 
-    document.body.appendChild(container);
+
+    container.appendChild(
+        documentElement
+    );
+
+    document.body.appendChild(
+        container
+    );
 
 
-    /* ---------------------------------------------
+    /* -------------------------------------------------
        MathJax
-       --------------------------------------------- */
+    ------------------------------------------------- */
 
     if (
         window.MathJax &&
-        typeof window.MathJax.typesetPromise ===
-        "function"
+        typeof window.MathJax.typesetPromise === "function"
     ) {
 
         try {
@@ -482,303 +477,295 @@ async function notebookToHTML(notebook) {
                 "MathJax rendering warning:",
                 error
             );
-
         }
-
     }
 
 
     return container;
-
 }
 
 
 /* =========================================================
-   RENDER OUTPUT
-   ========================================================= */
+   SOURCE → STRING
+========================================================= */
+
+function sourceToString(source) {
+
+    if (Array.isArray(source)) {
+        return source.join("");
+    }
+
+    if (typeof source === "string") {
+        return source;
+    }
+
+    return "";
+}
+
+
+/* =========================================================
+   OUTPUT RENDERING
+========================================================= */
 
 function renderOutput(output) {
 
-    const container =
+    if (!output) {
+        return null;
+    }
+
+    const wrapper =
         document.createElement("div");
 
-    container.className =
-        "output";
+    wrapper.className = "output";
 
 
-    const data =
-        output?.data || {};
-
-
-    /* =====================================================
-       STREAM OUTPUT
-       ===================================================== */
+    /* -------------------------------------------------
+       STREAM
+    ------------------------------------------------- */
 
     if (output.output_type === "stream") {
 
         const text =
-            Array.isArray(output.text)
-                ? output.text.join("")
-                : (output.text || "");
-
+            sourceToString(output.text);
 
         const pre =
             document.createElement("pre");
 
-        pre.textContent = text;
+        pre.className =
+            "output-stream";
 
-        container.appendChild(pre);
+        pre.textContent =
+            text;
 
-        return container;
+        wrapper.appendChild(pre);
+
+        return wrapper;
     }
 
 
-    /* =====================================================
-       ERROR OUTPUT
-       ===================================================== */
+    /* -------------------------------------------------
+       ERROR
+    ------------------------------------------------- */
 
     if (output.output_type === "error") {
 
         const pre =
             document.createElement("pre");
 
+        pre.className =
+            "output-error";
 
         const traceback =
             Array.isArray(output.traceback)
                 ? output.traceback.join("\n")
-                : (
-                    output.traceback ||
-                    (
-                        output.ename +
-                        ": " +
-                        output.evalue
+                : "";
+
+        pre.textContent =
+            traceback ||
+            `${output.ename || "Error"}: ${
+                output.evalue || ""
+            }`;
+
+        wrapper.appendChild(pre);
+
+        return wrapper;
+    }
+
+
+    /* -------------------------------------------------
+       DISPLAY DATA / EXECUTE RESULT
+    ------------------------------------------------- */
+
+    if (
+        output.output_type === "display_data" ||
+        output.output_type === "execute_result"
+    ) {
+
+        const data =
+            output.data || {};
+
+
+        /* ---------------------------------------------
+           PNG
+        --------------------------------------------- */
+
+        if (data["image/png"]) {
+
+            const img =
+                document.createElement("img");
+
+            img.className =
+                "output-image";
+
+            img.src =
+                "data:image/png;base64," +
+                cleanBase64(data["image/png"]);
+
+            img.alt =
+                "Notebook output";
+
+            wrapper.appendChild(img);
+
+            return wrapper;
+        }
+
+
+        /* ---------------------------------------------
+           JPEG
+        --------------------------------------------- */
+
+        if (data["image/jpeg"]) {
+
+            const img =
+                document.createElement("img");
+
+            img.className =
+                "output-image";
+
+            img.src =
+                "data:image/jpeg;base64," +
+                cleanBase64(data["image/jpeg"]);
+
+            img.alt =
+                "Notebook output";
+
+            wrapper.appendChild(img);
+
+            return wrapper;
+        }
+
+
+        /* ---------------------------------------------
+           SVG
+        --------------------------------------------- */
+
+        if (data["image/svg+xml"]) {
+
+            const svg =
+                window.DOMPurify.sanitize(
+                    sourceToString(
+                        data["image/svg+xml"]
+                    ),
+                    {
+                        USE_PROFILES: {
+                            svg: true,
+                            svgFilters: true
+                        }
+                    }
+                );
+
+            const div =
+                document.createElement("div");
+
+            div.className =
+                "output-svg";
+
+            div.innerHTML =
+                svg;
+
+            wrapper.appendChild(div);
+
+            return wrapper;
+        }
+
+
+        /* ---------------------------------------------
+           HTML
+        --------------------------------------------- */
+
+        if (data["text/html"]) {
+
+            const html =
+                window.DOMPurify.sanitize(
+                    sourceToString(
+                        data["text/html"]
                     )
                 );
 
+            const div =
+                document.createElement("div");
 
-        pre.textContent =
-            traceback;
+            div.className =
+                "output-html";
 
+            div.innerHTML =
+                html;
 
-        container.appendChild(pre);
+            wrapper.appendChild(div);
 
-        return container;
-    }
-
-
-    /* =====================================================
-       TEXT OUTPUT
-       ===================================================== */
-
-    if (data["text/plain"]) {
-
-        const text =
-            Array.isArray(data["text/plain"])
-                ? data["text/plain"].join("")
-                : data["text/plain"];
-
-
-        const pre =
-            document.createElement("pre");
-
-        pre.textContent =
-            text;
-
-
-        container.appendChild(pre);
-
-    }
-
-
-    /* =====================================================
-       PNG IMAGE
-       ===================================================== */
-
-    if (data["image/png"]) {
-
-        const img =
-            document.createElement("img");
-
-        img.className =
-            "output-image";
-
-
-        img.src =
-            "data:image/png;base64," +
-            cleanBase64(data["image/png"]);
-
-
-        img.alt =
-            "Notebook output";
-
-
-        container.appendChild(img);
-
-    }
-
-
-    /* =====================================================
-       JPEG IMAGE
-       ===================================================== */
-
-    if (data["image/jpeg"]) {
-
-        const img =
-            document.createElement("img");
-
-        img.className =
-            "output-image";
-
-
-        img.src =
-            "data:image/jpeg;base64," +
-            cleanBase64(data["image/jpeg"]);
-
-
-        img.alt =
-            "Notebook output";
-
-
-        container.appendChild(img);
-
-    }
-
-
-    /* =====================================================
-       SVG
-       ===================================================== */
-
-    if (data["image/svg+xml"]) {
-
-        const svg =
-            Array.isArray(data["image/svg+xml"])
-                ? data["image/svg+xml"].join("")
-                : data["image/svg+xml"];
-
-
-        const safeSVG =
-            window.DOMPurify.sanitize(
-                svg,
-                {
-                    USE_PROFILES: {
-                        svg: true,
-                        svgFilters: true
-                    }
-                }
-            );
-
-
-        const wrapper =
-            document.createElement("div");
-
-        wrapper.innerHTML =
-            safeSVG;
-
-
-        const svgElement =
-            wrapper.firstElementChild;
-
-
-        if (svgElement) {
-
-            svgElement.style.maxWidth =
-                "100%";
-
-            svgElement.style.height =
-                "auto";
-
-
-            container.appendChild(
-                svgElement
-            );
-
+            return wrapper;
         }
 
+
+        /* ---------------------------------------------
+           Plain text
+        --------------------------------------------- */
+
+        if (data["text/plain"]) {
+
+            const pre =
+                document.createElement("pre");
+
+            pre.className =
+                "output-text";
+
+            pre.textContent =
+                sourceToString(
+                    data["text/plain"]
+                );
+
+            wrapper.appendChild(pre);
+
+            return wrapper;
+        }
     }
 
 
-    /* =====================================================
-       HTML OUTPUT
-       ===================================================== */
-
-    if (data["text/html"]) {
-
-        const html =
-            Array.isArray(data["text/html"])
-                ? data["text/html"].join("")
-                : data["text/html"];
-
-
-        const safeHTML =
-            window.DOMPurify.sanitize(html);
-
-
-        const htmlContainer =
-            document.createElement("div");
-
-
-        htmlContainer.innerHTML =
-            safeHTML;
-
-
-        container.appendChild(
-            htmlContainer
-        );
-
-    }
-
-
-    /* =====================================================
-       NOTHING TO SHOW
-       ===================================================== */
-
-    if (!container.hasChildNodes()) {
-        return null;
-    }
-
-
-    return container;
-
+    return null;
 }
 
 
 /* =========================================================
    CLEAN BASE64
-   ========================================================= */
+========================================================= */
 
-function cleanBase64(data) {
+function cleanBase64(value) {
 
-    return String(data)
-        .replace(/\s/g, "");
+    if (Array.isArray(value)) {
+        value = value.join("");
+    }
 
+    if (typeof value !== "string") {
+        return "";
+    }
+
+    return value.replace(/\s/g, "");
 }
 
 
 /* =========================================================
    WAIT FOR IMAGES
-   ========================================================= */
+========================================================= */
 
 async function waitForImages(container) {
 
     const images =
-        [
-            ...container.querySelectorAll("img")
-        ];
+        Array.from(
+            container.querySelectorAll("img")
+        );
 
+    if (images.length === 0) {
+        return;
+    }
 
     await Promise.all(
-
         images.map(img => {
 
+            if (img.complete) {
+                return Promise.resolve();
+            }
+
             return new Promise(resolve => {
-
-                if (img.complete) {
-
-                    resolve();
-
-                    return;
-                }
-
 
                 img.addEventListener(
                     "load",
@@ -786,339 +773,667 @@ async function waitForImages(container) {
                     { once: true }
                 );
 
-
                 img.addEventListener(
                     "error",
                     resolve,
                     { once: true }
                 );
-
             });
-
         })
-
     );
-
 }
 
 
 /* =========================================================
    WAIT FOR MATHJAX
-   ========================================================= */
+========================================================= */
 
-async function waitForMath() {
+async function waitForMath(container) {
 
     if (
-        window.MathJax &&
-        window.MathJax.startup &&
-        window.MathJax.startup.promise
+        !window.MathJax ||
+        !window.MathJax.startup
     ) {
-
-        await window.MathJax.startup.promise;
-
+        return;
     }
 
+    try {
+
+        if (window.MathJax.startup.promise) {
+            await window.MathJax.startup.promise;
+        }
+
+        if (
+            typeof window.MathJax.typesetPromise ===
+            "function"
+        ) {
+
+            await window.MathJax.typesetPromise([
+                container
+            ]);
+        }
+
+    } catch (error) {
+
+        console.warn(
+            "MathJax wait warning:",
+            error
+        );
+    }
 }
 
 
 /* =========================================================
    CREATE PDF
-   ========================================================= */
+   CHROME-SAFE CHUNKED RENDERING
+========================================================= */
 
 async function createPDF(element) {
+
+    if (!element) {
+        throw new Error(
+            "PDF render element not found."
+        );
+    }
+
+
+    if (!window.jspdf) {
+        throw new Error(
+            "jsPDF is not loaded."
+        );
+    }
+
+
+    if (!window.html2canvas) {
+        throw new Error(
+            "html2canvas is not loaded."
+        );
+    }
+
 
     const { jsPDF } =
         window.jspdf;
 
 
-    if (!element) {
+    /* -------------------------------------------------
+       Force stable layout
+    ------------------------------------------------- */
 
-        throw new Error(
-            "PDF rendering element was not created."
-        );
-
-    }
-
-
-    /* ---------------------------------------------
-       Make sure the element has real dimensions
-       --------------------------------------------- */
+    const renderWidth = 794;
 
     element.style.width =
-        "794px";
+        `${renderWidth}px`;
 
-    element.style.display =
-        "block";
+    element.style.maxWidth =
+        `${renderWidth}px`;
+
+    element.style.minWidth =
+        `${renderWidth}px`;
 
     element.style.background =
         "#ffffff";
 
+    element.style.display =
+        "block";
 
-    /* Force browser layout */
-    void element.offsetHeight;
+    element.style.visibility =
+        "visible";
 
-
-    const width =
-        element.scrollWidth;
-
-
-    const height =
-        element.scrollHeight;
+    element.style.opacity =
+        "1";
 
 
-    if (!width || !height) {
+    /* -------------------------------------------------
+       Allow browser to paint
+    ------------------------------------------------- */
 
-        throw new Error(
-            "The notebook produced an empty rendering."
+    await new Promise(resolve =>
+        requestAnimationFrame(resolve)
+    );
+
+    await new Promise(resolve =>
+        requestAnimationFrame(resolve)
+    );
+
+
+    /* -------------------------------------------------
+       Measure document
+    ------------------------------------------------- */
+
+    const totalWidth =
+        Math.ceil(
+            element.scrollWidth
         );
 
-    }
-
-
-    /* ---------------------------------------------
-       Render HTML to canvas
-       --------------------------------------------- */
-
-    const canvas =
-        await window.html2canvas(
-            element,
-            {
-                scale: 2,
-
-                backgroundColor:
-                    "#ffffff",
-
-                useCORS: true,
-
-                allowTaint: false,
-
-                logging: false,
-
-                imageTimeout: 30000,
-
-                width: width,
-
-                height: height,
-
-                windowWidth: width,
-
-                windowHeight: height,
-
-                scrollX: 0,
-
-                scrollY: 0
-            }
+    const totalHeight =
+        Math.ceil(
+            element.scrollHeight
         );
 
 
     if (
-        !canvas ||
-        !canvas.width ||
-        !canvas.height
+        !totalWidth ||
+        !totalHeight
     ) {
 
         throw new Error(
-            "The notebook could not be rendered."
+            "The notebook produced no visible content."
         );
-
     }
 
 
-    /* ---------------------------------------------
+    console.log(
+        "PDF dimensions:",
+        totalWidth,
+        totalHeight
+    );
+
+
+    /* -------------------------------------------------
        Create PDF
-       --------------------------------------------- */
+    ------------------------------------------------- */
 
     const pdf =
         new jsPDF({
             orientation: "portrait",
-
             unit: "mm",
-
             format: "a4",
-
             compress: true
         });
 
 
-    const pageWidth =
-        210;
+    const pageWidth = 210;
+    const pageHeight = 297;
 
-    const pageHeight =
-        297;
+    const margin = 10;
 
-    const margin =
-        10;
-
-
-    const contentWidth =
+    const usableWidth =
         pageWidth - margin * 2;
 
-    const contentHeight =
+    const usableHeight =
         pageHeight - margin * 2;
 
 
-    /* ---------------------------------------------
-       Calculate source height for one PDF page
-       --------------------------------------------- */
+    /*
+     * IMPORTANT:
+     *
+     * Never render the whole notebook into one
+     * giant canvas.
+     *
+     * Chrome can return blank canvases when the
+     * DOM becomes very tall.
+     */
 
-    const sourcePageHeight =
-        Math.floor(
-            canvas.width *
-            contentHeight /
-            contentWidth
-        );
+    const chunkHeight = 900;
 
-
-    let sourceY =
-        0;
-
-    let pageNumber =
-        0;
+    const scale = 1.5;
 
 
-    /* ---------------------------------------------
-       Slice canvas into pages
-       --------------------------------------------- */
+    let currentY = 0;
+    let pageNumber = 0;
 
-    while (sourceY < canvas.height) {
 
-        const sliceHeight =
+    /* =================================================
+       PROCESS CHUNKS
+    ================================================= */
+
+    while (
+        currentY < totalHeight
+    ) {
+
+        const remainingHeight =
+            totalHeight - currentY;
+
+        const captureHeight =
             Math.min(
-                sourcePageHeight,
-                canvas.height - sourceY
+                chunkHeight,
+                remainingHeight
             );
 
 
-        const pageCanvas =
-            document.createElement("canvas");
+        /* ---------------------------------------------
+           Create isolated wrapper
+        --------------------------------------------- */
 
+        const wrapper =
+            document.createElement("div");
 
-        pageCanvas.width =
-            canvas.width;
+        wrapper.style.position =
+            "absolute";
 
-        pageCanvas.height =
-            sliceHeight;
+        wrapper.style.left =
+            "0px";
 
+        wrapper.style.top =
+            "0px";
 
-        const ctx =
-            pageCanvas.getContext("2d");
+        wrapper.style.width =
+            `${totalWidth}px`;
 
+        wrapper.style.height =
+            `${captureHeight}px`;
 
-        if (!ctx) {
+        wrapper.style.overflow =
+            "hidden";
 
-            throw new Error(
-                "Could not create PDF canvas."
-            );
-
-        }
-
-
-        /* White background */
-
-        ctx.fillStyle =
+        wrapper.style.background =
             "#ffffff";
 
-        ctx.fillRect(
-            0,
-            0,
-            pageCanvas.width,
-            pageCanvas.height
+        wrapper.style.zIndex =
+            "-999999";
+
+
+        /* ---------------------------------------------
+           Clone notebook
+        --------------------------------------------- */
+
+        const clone =
+            element.cloneNode(true);
+
+        clone.style.position =
+            "absolute";
+
+        clone.style.left =
+            "0px";
+
+        clone.style.top =
+            `${-currentY}px`;
+
+        clone.style.width =
+            `${totalWidth}px`;
+
+        clone.style.maxWidth =
+            `${totalWidth}px`;
+
+        clone.style.minWidth =
+            `${totalWidth}px`;
+
+        clone.style.margin =
+            "0";
+
+        clone.style.padding =
+            "0";
+
+        clone.style.background =
+            "#ffffff";
+
+
+        wrapper.appendChild(
+            clone
+        );
+
+        document.body.appendChild(
+            wrapper
         );
 
 
-        /* Copy this page's portion */
+        /* ---------------------------------------------
+           Allow Chrome to paint clone
+        --------------------------------------------- */
 
-        ctx.drawImage(
-            canvas,
+        await new Promise(resolve =>
+            requestAnimationFrame(resolve)
+        );
 
-            0,
-            sourceY,
+        await new Promise(resolve =>
+            requestAnimationFrame(resolve)
+        );
 
-            canvas.width,
-            sliceHeight,
-
-            0,
-            0,
-
-            canvas.width,
-            sliceHeight
+        await new Promise(resolve =>
+            setTimeout(resolve, 50)
         );
 
 
-        const imageData =
-            pageCanvas.toDataURL(
-                "image/jpeg",
-                0.95
+        let canvas;
+
+
+        /* ---------------------------------------------
+           Capture chunk
+        --------------------------------------------- */
+
+        try {
+
+            canvas =
+                await html2canvas(
+                    wrapper,
+                    {
+                        scale: scale,
+
+                        backgroundColor:
+                            "#ffffff",
+
+                        useCORS: true,
+
+                        allowTaint: false,
+
+                        logging: false,
+
+                        imageTimeout: 30000,
+
+                        width:
+                            totalWidth,
+
+                        height:
+                            captureHeight,
+
+                        windowWidth:
+                            totalWidth,
+
+                        windowHeight:
+                            captureHeight,
+
+                        scrollX: 0,
+
+                        scrollY: 0,
+
+                        x: 0,
+
+                        y: 0
+                    }
+                );
+
+        } catch (error) {
+
+            console.error(
+                "html2canvas error:",
+                error
             );
 
+            throw new Error(
+                "Chrome could not render part of the notebook. Try refreshing the page and converting again."
+            );
 
-        /* Add page after first page */
+        } finally {
 
-        if (pageNumber > 0) {
-            pdf.addPage();
+            wrapper.remove();
         }
 
 
-        const renderedHeight =
-            sliceHeight *
-            contentWidth /
-            canvas.width;
+        /* ---------------------------------------------
+           Validate canvas
+        --------------------------------------------- */
+
+        if (
+            !canvas ||
+            canvas.width === 0 ||
+            canvas.height === 0
+        ) {
+
+            throw new Error(
+                `Chrome produced an empty canvas for section ${
+                    pageNumber + 1
+                }.`
+            );
+        }
 
 
-        pdf.addImage(
-            imageData,
+        /* ---------------------------------------------
+           Determine PDF slice size
+        --------------------------------------------- */
 
-            "JPEG",
+        const pixelsPerPdfPage =
+            (
+                usableHeight /
+                usableWidth
+            ) * canvas.width;
 
-            margin,
 
-            margin,
+        let sourceY = 0;
 
-            contentWidth,
 
-            renderedHeight,
+        /* =================================================
+           SPLIT CHUNK INTO PDF PAGES
+        ================================================= */
 
-            undefined,
+        while (
+            sourceY < canvas.height
+        ) {
 
-            "FAST"
+            const sourceHeight =
+                Math.min(
+                    pixelsPerPdfPage,
+                    canvas.height - sourceY
+                );
+
+
+            /* -----------------------------------------
+               Page canvas
+            ----------------------------------------- */
+
+            const pageCanvas =
+                document.createElement(
+                    "canvas"
+                );
+
+            pageCanvas.width =
+                canvas.width;
+
+            pageCanvas.height =
+                Math.ceil(
+                    sourceHeight
+                );
+
+
+            const context =
+                pageCanvas.getContext(
+                    "2d",
+                    {
+                        alpha: false
+                    }
+                );
+
+
+            context.fillStyle =
+                "#ffffff";
+
+            context.fillRect(
+                0,
+                0,
+                pageCanvas.width,
+                pageCanvas.height
+            );
+
+
+            context.drawImage(
+                canvas,
+
+                0,
+                sourceY,
+
+                canvas.width,
+                sourceHeight,
+
+                0,
+                0,
+
+                pageCanvas.width,
+                pageCanvas.height
+            );
+
+
+            /* -----------------------------------------
+               Convert to JPEG
+            ----------------------------------------- */
+
+            const imageData =
+                pageCanvas.toDataURL(
+                    "image/jpeg",
+                    0.92
+                );
+
+
+            /* -----------------------------------------
+               Add PDF page
+            ----------------------------------------- */
+
+            if (pageNumber > 0) {
+                pdf.addPage();
+            }
+
+
+            const imageHeight =
+                (
+                    sourceHeight /
+                    canvas.width
+                ) * usableWidth;
+
+
+            pdf.addImage(
+                imageData,
+                "JPEG",
+
+                margin,
+                margin,
+
+                usableWidth,
+                imageHeight,
+
+                undefined,
+
+                "FAST"
+            );
+
+
+            pageNumber++;
+
+
+            sourceY +=
+                sourceHeight;
+
+
+            /* -----------------------------------------
+               Give Chrome time between pages
+            ----------------------------------------- */
+
+            await new Promise(resolve =>
+                requestAnimationFrame(resolve)
+            );
+
+
+            /* -----------------------------------------
+               Free page canvas
+            ----------------------------------------- */
+
+            pageCanvas.width = 1;
+            pageCanvas.height = 1;
+        }
+
+
+        /* ---------------------------------------------
+           Move to next notebook chunk
+        --------------------------------------------- */
+
+        currentY +=
+            captureHeight;
+
+
+        /* ---------------------------------------------
+           Free large canvas
+        --------------------------------------------- */
+
+        canvas.width = 1;
+        canvas.height = 1;
+
+
+        /* ---------------------------------------------
+           Small Chrome memory pause
+        --------------------------------------------- */
+
+        await new Promise(resolve =>
+            setTimeout(resolve, 30)
         );
 
 
-        sourceY +=
-            sliceHeight;
+        /* ---------------------------------------------
+           Update progress
+        --------------------------------------------- */
 
-        pageNumber++;
+        const progress =
+            Math.min(
+                100,
+                Math.round(
+                    (
+                        currentY /
+                        totalHeight
+                    ) * 100
+                )
+            );
 
+        statusText.textContent =
+            `Creating PDF... ${progress}%`;
+    }
+
+
+    /* -------------------------------------------------
+       Final validation
+    ------------------------------------------------- */
+
+    if (pageNumber === 0) {
+
+        throw new Error(
+            "No PDF pages were generated."
+        );
     }
 
 
     return pdf;
-
 }
 
 
 /* =========================================================
-   ERROR HANDLING
-   ========================================================= */
+   LOADING UI
+========================================================= */
+
+function setLoading(
+    loading,
+    message = ""
+) {
+
+    if (loading) {
+
+        status.classList.remove(
+            "hidden"
+        );
+
+        statusText.textContent =
+            message;
+
+        convertButton.disabled =
+            true;
+
+    } else {
+
+        status.classList.add(
+            "hidden"
+        );
+
+        convertButton.disabled =
+            !selectedFile;
+    }
+}
+
+
+/* =========================================================
+   ERROR UI
+========================================================= */
 
 function showError(message) {
 
-    errorBox.textContent =
+    errorText.textContent =
         message;
 
     errorBox.classList.remove(
         "hidden"
     );
-
 }
 
 
 function hideError() {
 
-    errorBox.textContent = "";
-
     errorBox.classList.add(
         "hidden"
     );
 
+    errorText.textContent =
+        "";
 }
