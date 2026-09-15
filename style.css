@@ -1,114 +1,57 @@
-:root {
-    --bg-1: #f5f7ff;
-    --bg-2: #eef2ff;
-
-    --card: rgba(255, 255, 255, 0.88);
-
-    --text: #172033;
-    --muted: #697386;
-
-    --border: #e3e7ef;
-
-    --primary: #635bff;
-    --primary-dark: #5148e5;
-
-    --danger: #dc2626;
-
-    --shadow:
-        0 24px 70px rgba(45, 55, 90, 0.14);
-
-    --radius: 24px;
-}
-
-
-/* =========================================
-   BASE
-   ========================================= */
-
 * {
     box-sizing: border-box;
 }
 
-html {
+:root {
+    --bg: #f5f7fb;
+    --card: #ffffff;
+    --text: #111827;
+    --muted: #6b7280;
+    --border: #dbe1ea;
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --code-bg: #f6f8fa;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
     min-height: 100%;
 }
 
 body {
-    margin: 0;
-    min-height: 100vh;
-
+    background: var(--bg);
+    color: var(--text);
     font-family:
-        Inter,
         -apple-system,
         BlinkMacSystemFont,
         "Segoe UI",
         Roboto,
-        Helvetica,
         Arial,
         sans-serif;
-
-    color: var(--text);
-
-    background:
-        radial-gradient(
-            circle at top left,
-            rgba(99, 91, 255, 0.13),
-            transparent 35%
-        ),
-        radial-gradient(
-            circle at bottom right,
-            rgba(139, 92, 246, 0.12),
-            transparent 35%
-        ),
-        linear-gradient(
-            135deg,
-            var(--bg-1),
-            var(--bg-2)
-        );
 }
-
-
-/* =========================================
-   PAGE
-   ========================================= */
 
 .page {
     min-height: 100vh;
-
     display: flex;
-    align-items: center;
     justify-content: center;
-
+    align-items: center;
     padding: 40px 20px;
 }
-
-
-/* =========================================
-   APP CARD
-   ========================================= */
 
 .app-card {
     width: 100%;
     max-width: 720px;
-
-    padding: 46px;
-
     background: var(--card);
-
-    border: 1px solid rgba(255, 255, 255, 0.8);
-
-    border-radius: var(--radius);
-
-    box-shadow: var(--shadow);
-
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    border-radius: 24px;
+    padding: 42px;
+    box-shadow:
+        0 20px 60px rgba(15, 23, 42, 0.08),
+        0 4px 16px rgba(15, 23, 42, 0.04);
 }
-
-
-/* =========================================
-   HERO
-   ========================================= */
 
 .hero {
     text-align: center;
@@ -116,280 +59,160 @@ body {
 }
 
 .hero-icon {
-    width: 64px;
-    height: 64px;
-
-    margin: 0 auto 18px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 18px;
-
-    font-size: 30px;
-
-    background:
-        linear-gradient(
-            135deg,
-            rgba(99, 91, 255, 0.13),
-            rgba(139, 92, 246, 0.13)
-        );
+    font-size: 42px;
+    margin-bottom: 12px;
 }
 
 .hero h1 {
     margin: 0;
-
-    font-size: 42px;
-    line-height: 1.1;
-
+    font-size: 36px;
     font-weight: 800;
-    letter-spacing: -1.8px;
+    letter-spacing: -1px;
 }
 
 .hero h1 span {
-    background:
-        linear-gradient(
-            135deg,
-            #635bff,
-            #8b5cf6
-        );
-
-    -webkit-background-clip: text;
-    background-clip: text;
-
-    color: transparent;
+    color: var(--primary);
 }
 
 .hero p {
-    max-width: 510px;
-
-    margin: 14px auto 0;
-
+    margin: 12px auto 0;
+    max-width: 560px;
     color: var(--muted);
-
-    font-size: 16px;
     line-height: 1.6;
+    font-size: 15px;
 }
 
-
-/* =========================================
-   DROP ZONE
-   ========================================= */
-
 .drop-zone {
-    position: relative;
-
-    padding: 42px 25px;
-
+    border: 2px dashed #cfd6e2;
+    border-radius: 18px;
+    padding: 44px 25px;
     text-align: center;
-
-    border: 2px dashed #cfd5e3;
-
-    border-radius: 20px;
-
-    background: rgba(249, 250, 255, 0.8);
-
     transition:
         border-color 0.2s ease,
         background 0.2s ease,
         transform 0.2s ease;
 }
 
-.drop-zone:hover {
+.drop-zone.drag-over {
     border-color: var(--primary);
-
-    background:
-        rgba(99, 91, 255, 0.035);
-}
-
-.drop-zone.dragover {
-    border-color: var(--primary);
-
-    background:
-        rgba(99, 91, 255, 0.08);
-
-    transform: scale(1.01);
+    background: #f5f3ff;
+    transform: translateY(-2px);
 }
 
 .upload-icon {
     width: 58px;
     height: 58px;
-
-    margin: 0 auto 16px;
-
     display: flex;
     align-items: center;
     justify-content: center;
+    margin: 0 auto 16px;
 
     border-radius: 16px;
-
-    font-size: 27px;
-    font-weight: 700;
+    background: #eef2ff;
 
     color: var(--primary);
-
-    background:
-        rgba(99, 91, 255, 0.10);
+    font-size: 30px;
+    font-weight: 700;
 }
 
 .drop-zone h2 {
     margin: 0;
-
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 21px;
 }
 
 .drop-zone p {
-    margin: 7px 0 13px;
-
+    margin: 8px 0;
     color: var(--muted);
-
-    font-size: 14px;
 }
-
-.drop-zone small {
-    display: block;
-
-    margin-top: 17px;
-
-    color: #8a93a5;
-
-    font-size: 12px;
-}
-
-
-/* =========================================
-   FILE INPUT
-   ========================================= */
-
-.file-input {
-    position: absolute;
-
-    width: 1px;
-    height: 1px;
-
-    padding: 0;
-    margin: -1px;
-
-    overflow: hidden;
-
-    clip: rect(0, 0, 0, 0);
-    clip-path: inset(50%);
-
-    white-space: nowrap;
-
-    border: 0;
-}
-
-
-/* =========================================
-   BROWSE BUTTON
-   ========================================= */
 
 .browse-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
 
-    padding: 11px 18px;
+    min-height: 46px;
+    padding: 0 22px;
 
-    border-radius: 11px;
+    border-radius: 10px;
 
+    background: var(--primary);
     color: white;
 
-    background:
-        linear-gradient(
-            135deg,
-            var(--primary),
-            #8b5cf6
-        );
-
-    font-size: 14px;
     font-weight: 700;
+    font-size: 14px;
 
     cursor: pointer;
 
-    box-shadow:
-        0 8px 20px rgba(99, 91, 255, 0.22);
-
     transition:
-        transform 0.2s ease,
-        box-shadow 0.2s ease;
+        background 0.2s ease,
+        transform 0.2s ease;
 }
 
 .browse-button:hover {
+    background: var(--primary-dark);
     transform: translateY(-1px);
-
-    box-shadow:
-        0 12px 26px rgba(99, 91, 255, 0.28);
 }
 
-.browse-button:active {
-    transform: translateY(0);
+.file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
-
-/* =========================================
-   FILE INFO
-   ========================================= */
+.drop-zone small {
+    display: block;
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 12px;
+}
 
 .file-info {
     display: flex;
     align-items: center;
-
     gap: 14px;
 
-    margin-top: 18px;
-
-    padding: 14px 16px;
+    margin-top: 20px;
+    padding: 15px 16px;
 
     border: 1px solid var(--border);
+    border-radius: 14px;
 
-    border-radius: 15px;
-
-    background: white;
+    background: #fafbfc;
 }
 
 .file-icon {
     width: 42px;
     height: 42px;
 
-    flex-shrink: 0;
-
     display: flex;
     align-items: center;
     justify-content: center;
 
-    border-radius: 11px;
+    border-radius: 10px;
+    background: #eef2ff;
 
-    background:
-        rgba(99, 91, 255, 0.09);
-
-    font-size: 20px;
+    font-size: 21px;
 }
 
 .file-details {
+    flex: 1;
     min-width: 0;
 
     display: flex;
     flex-direction: column;
-
     gap: 3px;
 }
 
 .file-details strong {
     overflow: hidden;
-
     text-overflow: ellipsis;
     white-space: nowrap;
-
-    font-size: 14px;
 }
 
 .file-details span {
     color: var(--muted);
-
     font-size: 12px;
 }
 
@@ -397,25 +220,16 @@ body {
     width: 34px;
     height: 34px;
 
-    margin-left: auto;
+    border: none;
+    border-radius: 8px;
 
-    flex-shrink: 0;
+    background: transparent;
+    color: #6b7280;
 
-    border: 0;
-
-    border-radius: 9px;
-
-    background: #f3f4f6;
-
-    color: #687080;
-
-    font-size: 21px;
+    font-size: 25px;
+    line-height: 1;
 
     cursor: pointer;
-
-    transition:
-        background 0.2s ease,
-        color 0.2s ease;
 }
 
 .remove-button:hover {
@@ -423,116 +237,82 @@ body {
     color: var(--danger);
 }
 
-
-/* =========================================
-   CONVERT BUTTON
-   ========================================= */
-
 .convert-button {
     width: 100%;
+    height: 52px;
 
     margin-top: 22px;
 
-    padding: 16px 20px;
+    border: none;
+    border-radius: 12px;
 
-    border: 0;
-
-    border-radius: 14px;
-
+    background: var(--primary);
     color: white;
-
-    background:
-        linear-gradient(
-            135deg,
-            var(--primary),
-            #8b5cf6
-        );
 
     font-size: 15px;
     font-weight: 700;
 
     cursor: pointer;
 
-    box-shadow:
-        0 12px 25px rgba(99, 91, 255, 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
 
     transition:
+        background 0.2s ease,
         transform 0.2s ease,
-        box-shadow 0.2s ease,
         opacity 0.2s ease;
 }
 
 .convert-button:hover:not(:disabled) {
+    background: var(--primary-dark);
     transform: translateY(-1px);
-
-    box-shadow:
-        0 15px 30px rgba(99, 91, 255, 0.28);
 }
 
 .convert-button:disabled {
-    cursor: not-allowed;
-
     opacity: 0.45;
-
-    box-shadow: none;
+    cursor: not-allowed;
 }
 
 .convert-icon {
-    margin-right: 7px;
-
-    font-size: 18px;
+    font-size: 19px;
 }
-
-
-/* =========================================
-   STATUS
-   ========================================= */
 
 .status {
     display: flex;
     align-items: center;
-
-    gap: 13px;
+    gap: 14px;
 
     margin-top: 20px;
+    padding: 15px 17px;
 
-    padding: 15px 16px;
-
-    border-radius: 14px;
-
-    background: #f7f7ff;
-
-    border: 1px solid #e7e7ff;
+    border-radius: 12px;
+    background: #f8fafc;
 }
 
-.status strong {
-    display: block;
-
-    margin-bottom: 3px;
-
-    font-size: 14px;
+.status > div:last-child {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 
 .status span {
     color: var(--muted);
-
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .spinner {
-    width: 23px;
-    height: 23px;
+    width: 22px;
+    height: 22px;
 
-    flex-shrink: 0;
-
-    border: 3px solid #dddffb;
-
+    border: 3px solid #e5e7eb;
     border-top-color: var(--primary);
 
     border-radius: 50%;
 
-    animation:
-        spin 0.8s linear infinite;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
 }
 
 @keyframes spin {
@@ -541,82 +321,50 @@ body {
     }
 }
 
-
-/* =========================================
-   ERROR
-   ========================================= */
-
 .error-box {
-    margin-top: 18px;
+    margin-top: 20px;
+    padding: 15px 17px;
 
-    padding: 15px 16px;
-
-    border-radius: 13px;
-
-    border: 1px solid #fecaca;
+    border-radius: 12px;
 
     background: #fef2f2;
+    border: 1px solid #fecaca;
 
     color: #991b1b;
 }
 
 .error-box strong {
     display: block;
-
-    margin-bottom: 4px;
-
-    font-size: 14px;
+    margin-bottom: 5px;
 }
 
 .error-box p {
     margin: 0;
-
-    color: #b42318;
-
     font-size: 13px;
-
     line-height: 1.5;
-
-    overflow-wrap: anywhere;
 }
-
-
-/* =========================================
-   FOOTER
-   ========================================= */
 
 footer {
-    margin-top: 27px;
+    margin-top: 28px;
 
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 7px;
 
-    color: #8a93a5;
-
+    color: var(--muted);
     font-size: 12px;
-
-    line-height: 1.5;
+    text-align: center;
 }
-
-
-/* =========================================
-   UTILITY
-   ========================================= */
 
 .hidden {
     display: none !important;
 }
 
 
-/* =========================================
-   PDF RENDERING AREA
-   ========================================= */
-
-/*
-    Completely outside the visible viewport.
-
-    This prevents the notebook from appearing as a
-    second window/panel while PDF generation happens.
-*/
+/* =========================================================
+   PDF RENDERING
+   ========================================================= */
 
 .pdf-render-container {
     position: fixed;
@@ -625,7 +373,6 @@ footer {
     top: 0;
 
     width: 794px;
-
     height: auto;
 
     overflow: visible;
@@ -634,13 +381,11 @@ footer {
 
     pointer-events: none;
 
-    visibility: hidden;
+    /*
+       Do NOT use visibility:hidden here.
+       html2canvas needs to be able to render this element.
+    */
 }
-
-
-/* =========================================
-   NOTEBOOK
-   ========================================= */
 
 .notebook-document {
     width: 794px;
@@ -648,7 +393,6 @@ footer {
     padding: 42px 46px;
 
     background: white;
-
     color: #111827;
 
     font-family:
@@ -660,122 +404,151 @@ footer {
         sans-serif;
 
     font-size: 14px;
-
     line-height: 1.6;
 }
 
-.notebook-cell {
-    margin-bottom: 24px;
-
-    break-inside: avoid;
-    page-break-inside: avoid;
-}
-
 .notebook-title {
-    margin:
-        0 0 30px;
+    margin: 0 0 32px;
 
     padding-bottom: 18px;
 
     border-bottom: 2px solid #e5e7eb;
 
-    font-size: 27px;
-
+    font-size: 28px;
     line-height: 1.25;
+    font-weight: 800;
+
+    color: #111827;
+}
+
+.notebook-cell {
+    margin: 0 0 22px;
+}
+
+.notebook-cell:last-child {
+    margin-bottom: 0;
 }
 
 
-/* =========================================
-   MARKDOWN
-   ========================================= */
+/* Markdown */
 
-.markdown-cell h1,
-.markdown-cell h2,
-.markdown-cell h3,
-.markdown-cell h4,
-.markdown-cell h5,
-.markdown-cell h6 {
+.markdown {
+    color: #1f2937;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+    color: #111827;
+    line-height: 1.3;
     margin-top: 1.2em;
     margin-bottom: 0.55em;
-
-    line-height: 1.3;
 }
 
-.markdown-cell h1 {
-    font-size: 25px;
+.markdown h1 {
+    font-size: 26px;
 }
 
-.markdown-cell h2 {
-    font-size: 21px;
+.markdown h2 {
+    font-size: 22px;
 }
 
-.markdown-cell h3 {
-    font-size: 18px;
+.markdown h3 {
+    font-size: 19px;
 }
 
-.markdown-cell p {
-    margin: 0.65em 0;
+.markdown h4 {
+    font-size: 17px;
 }
 
-.markdown-cell ul,
-.markdown-cell ol {
-    padding-left: 26px;
+.markdown p {
+    margin: 0.7em 0;
 }
 
-.markdown-cell li {
+.markdown ul,
+.markdown ol {
+    padding-left: 28px;
+}
+
+.markdown li {
     margin: 4px 0;
 }
 
-.markdown-cell blockquote {
+.markdown blockquote {
     margin: 16px 0;
-
     padding: 8px 16px;
 
-    border-left: 4px solid #d1d5db;
+    border-left: 4px solid #cbd5e1;
 
-    background: #f9fafb;
-
-    color: #4b5563;
+    color: #475569;
+    background: #f8fafc;
 }
 
-.markdown-cell a {
-    color: #4f46e5;
+.markdown table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
 }
 
-
-/* =========================================
-   CODE
-   ========================================= */
-
-.code-cell {
-    margin-top: 12px;
+.markdown th,
+.markdown td {
+    border: 1px solid #d1d5db;
+    padding: 7px 9px;
+    text-align: left;
 }
 
-.code-label {
-    margin-bottom: 6px;
-
-    color: #6b7280;
-
-    font-size: 11px;
+.markdown th {
+    background: #f3f4f6;
     font-weight: 700;
-
-    text-transform: uppercase;
-
-    letter-spacing: 0.05em;
 }
 
-.code-block {
+.markdown code {
+    padding: 2px 5px;
+
+    border-radius: 4px;
+
+    background: #f1f5f9;
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        Menlo,
+        monospace;
+
+    font-size: 0.9em;
+}
+
+.markdown pre {
+    margin: 16px 0;
+    padding: 14px;
+
+    border-radius: 8px;
+
+    background: #f6f8fa;
+
+    overflow: hidden;
+}
+
+.markdown pre code {
+    padding: 0;
+    background: transparent;
+}
+
+
+/* Code */
+
+.code {
     margin: 0;
 
-    padding: 15px 17px;
+    padding: 14px 16px;
 
-    overflow-wrap: anywhere;
+    border-radius: 8px;
 
-    white-space: pre-wrap;
-
-    border-radius: 9px;
-
-    background: #f3f4f6;
+    background: var(--code-bg);
 
     border: 1px solid #e5e7eb;
 
@@ -788,34 +561,29 @@ footer {
         Menlo,
         monospace;
 
-    font-size: 11px;
-
+    font-size: 12px;
     line-height: 1.55;
+
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 
-/* =========================================
-   OUTPUTS
-   ========================================= */
+/* Outputs */
 
-.output-cell {
-    margin-top: 12px;
-}
-
-.output-label {
-    margin-bottom: 6px;
-
-    color: #6b7280;
-
-    font-size: 11px;
-    font-weight: 700;
-
-    text-transform: uppercase;
-
-    letter-spacing: 0.05em;
+.output {
+    margin-top: 10px;
 }
 
 .output-text {
+    margin: 0;
+
+    padding: 10px 13px;
+
+    border-left: 3px solid #cbd5e1;
+
+    background: #fafafa;
+
     white-space: pre-wrap;
 
     font-family:
@@ -825,126 +593,103 @@ footer {
         Menlo,
         monospace;
 
-    font-size: 11px;
-
+    font-size: 12px;
     line-height: 1.5;
 }
 
 .output-error {
-    padding: 13px;
+    margin: 0;
 
-    border-radius: 8px;
+    padding: 12px 14px;
 
-    background: #fef2f2;
+    background: #fff1f2;
 
-    border: 1px solid #fecaca;
+    border: 1px solid #fecdd3;
+    border-radius: 7px;
 
-    color: #991b1b;
+    color: #9f1239;
+
+    white-space: pre-wrap;
 
     font-family:
         "SFMono-Regular",
         Consolas,
+        "Liberation Mono",
+        Menlo,
         monospace;
 
-    font-size: 11px;
-
-    white-space: pre-wrap;
+    font-size: 12px;
 }
 
-.output-image {
+.output img {
     display: block;
 
     max-width: 100%;
-
     height: auto;
 
-    margin-top: 8px;
+    margin: 10px auto;
+}
+
+.output svg {
+    display: block;
+
+    max-width: 100%;
+    height: auto;
+
+    margin: 10px auto;
 }
 
 .output-html {
     max-width: 100%;
-
-    overflow-wrap: anywhere;
+    overflow: hidden;
 }
 
 .output-html img {
     max-width: 100%;
-
-    height: auto;
 }
 
-
-/* =========================================
-   TABLES
-   ========================================= */
-
-.notebook-document table {
-    width: 100%;
-
-    margin: 14px 0;
-
+.output-html table {
+    max-width: 100%;
     border-collapse: collapse;
-
-    font-size: 11px;
 }
 
-.notebook-document th,
-.notebook-document td {
-    padding: 7px 9px;
-
+.output-html th,
+.output-html td {
     border: 1px solid #d1d5db;
-
-    text-align: left;
-
-    vertical-align: top;
-}
-
-.notebook-document th {
-    background: #f3f4f6;
-
-    font-weight: 700;
+    padding: 6px 8px;
 }
 
 
-/* =========================================
-   MATH
-   ========================================= */
+/* MathJax */
 
-.notebook-document mjx-container {
-    overflow-x: auto;
-    overflow-y: hidden;
+mjx-container {
+    overflow: visible !important;
+}
+
+mjx-container[display="true"] {
+    margin: 14px 0 !important;
 }
 
 
-/* =========================================
-   MOBILE
-   ========================================= */
+/* Mobile */
 
-@media (max-width: 650px) {
+@media (max-width: 700px) {
 
     .page {
         padding: 20px 12px;
+        align-items: flex-start;
     }
 
     .app-card {
         padding: 28px 20px;
-
-        border-radius: 20px;
+        border-radius: 18px;
     }
 
     .hero h1 {
-        font-size: 34px;
-    }
-
-    .hero p {
-        font-size: 14px;
+        font-size: 30px;
     }
 
     .drop-zone {
-        padding: 32px 18px;
-    }
-
-    .notebook-document {
-        padding: 30px;
+        padding: 35px 18px;
     }
 }
