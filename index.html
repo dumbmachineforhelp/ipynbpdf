@@ -8,16 +8,10 @@
 
     <link rel="stylesheet" href="style.css">
 
-    <!-- Markdown -->
+    <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/lib/marked.umd.js"></script>
-
-    <!-- HTML Sanitizer -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
-
-    <!-- Canvas renderer -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-
-    <!-- PDF generator -->
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 
     <!-- MathJax -->
@@ -41,7 +35,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 
-    <!-- App -->
     <script src="script.js" defer></script>
 </head>
 
@@ -52,10 +45,7 @@
     <section class="app-card">
 
         <div class="hero">
-
-            <div class="hero-icon">
-                📓
-            </div>
+            <div class="hero-icon">📓</div>
 
             <h1>
                 IPYNB <span>to PDF</span>
@@ -65,39 +55,21 @@
                 Convert your Jupyter Notebook files into beautiful PDFs
                 directly in your browser.
             </p>
-
         </div>
 
 
-        <!-- Upload -->
+        <div id="dropZone" class="drop-zone">
 
-        <div
-            id="dropZone"
-            class="drop-zone"
-        >
+            <div class="upload-icon">↑</div>
 
-            <div class="upload-icon">
-                ↑
-            </div>
+            <h2>Drop your notebook here</h2>
 
-            <h2>
-                Drop your notebook here
-            </h2>
+            <p>or</p>
 
-            <p>
-                or
-            </p>
-
-            <!-- Native browser file picker -->
-            <label
-                for="fileInput"
-                class="browse-button"
-            >
+            <label for="fileInput" class="browse-button">
                 Choose .ipynb file
             </label>
 
-            <!-- Important:
-                 no "hidden" attribute -->
             <input
                 type="file"
                 id="fileInput"
@@ -112,27 +84,13 @@
         </div>
 
 
-        <!-- Selected file -->
+        <div id="fileInfo" class="file-info hidden">
 
-        <div
-            id="fileInfo"
-            class="file-info hidden"
-        >
-
-            <div class="file-icon">
-                📄
-            </div>
+            <div class="file-icon">📄</div>
 
             <div class="file-details">
-
-                <strong id="fileName">
-                    notebook.ipynb
-                </strong>
-
-                <span id="fileSize">
-                    0 KB
-                </span>
-
+                <strong id="fileName">notebook.ipynb</strong>
+                <span id="fileSize">0 KB</span>
             </div>
 
             <button
@@ -146,8 +104,6 @@
         </div>
 
 
-        <!-- Convert -->
-
         <button
             id="convertButton"
             class="convert-button"
@@ -159,17 +115,11 @@
         </button>
 
 
-        <!-- Progress -->
-
-        <div
-            id="status"
-            class="status hidden"
-        >
+        <div id="status" class="status hidden">
 
             <div class="spinner"></div>
 
             <div>
-
                 <strong id="statusTitle">
                     Preparing...
                 </strong>
@@ -177,18 +127,12 @@
                 <span id="statusText">
                     Please wait
                 </span>
-
             </div>
 
         </div>
 
 
-        <!-- Error -->
-
-        <div
-            id="errorBox"
-            class="error-box hidden"
-        >
+        <div id="errorBox" class="error-box hidden">
 
             <strong>
                 Something went wrong
@@ -210,12 +154,7 @@
 </main>
 
 
-<!--
-    IMPORTANT
-
-    This is only a temporary rendering surface.
-    It is positioned far outside the visible page.
--->
+<!-- Hidden PDF rendering area -->
 <div
     id="pdfRenderContainer"
     class="pdf-render-container"
